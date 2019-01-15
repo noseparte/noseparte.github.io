@@ -18,7 +18,7 @@ favicon: favicon.png
 repository: kokoyuo/kokoyuo.github.io
 github_url: https://github.com/kokoyuo
 cnblog_url: http://www.cnblogs.com/ityouknow
-url: http://www.kokoyuo.com:8080
+#url: http://www.kokoyuo.com:8080
 #enforce_ssl: ityouknow.com
 
 ## Gem
