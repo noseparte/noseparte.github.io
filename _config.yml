@@ -9,27 +9,25 @@
 title:  kokoyuo
 subtitle: 分享技术，品味人生
 name: kokoyuo
-email: li354587806@qq.com
-description: 本站是kokoyuo的技术分享博客。内容涵盖生活故事、Java后端技术、Spring Boot、Spring Cloud、微服务架构、大数据演进、高可用架构、中间件使用、系统监控等相关的研究与知识分享。
-keywords: ityouknow,纯洁的微笑,Spring,Spring Boot,Spring Cloud,MongoDB,Jvm,Docker,生活故事,架构,大数据,一线,FastDFS,开发者,编程,代码,开源,IT网站,Developer,Programmer,Coder,Geek,IT技术博客,Java,Python,
+description: 本站是kokoyuo的技术分享博客。内容涵盖生活故事、Java后端技术、数据库技术等相关的研究与知识分享。
+keywords: kokoyuo,Spring,Spring Boot,Spring Cloud,MongoDB,Jvm,Docker,生活故事,架构,大数据,一线,FastDFS,开发者,编程,代码,开源,IT网站,Developer,Programmer,Coder,Geek,IT技术博客,Java,Python,
 encoding: "utf-8"
-favicon: favicon.png 
+favicon: favicon.png
 
 repository: kokoyuo/kokoyuo.github.io
 github_url: https://github.com/kokoyuo
-#cnblog_url: http://www.cnblogs.com/ityouknow
-url: https://kokoyuo.github.io/
+url: https://kokoyuo.github.io
 enforce_ssl: github.com/kokoyuo
 
 ## Gem
 plugins:
-  - jekyll-paginate
-  - jekyll-geo-pattern
-  - rouge
-  - kramdown
-  - jekyll-github-metadata
-  - jekyll-octicons
-  
+- jekyll-paginate
+- jekyll-geo-pattern
+- rouge
+- kramdown
+- jekyll-github-metadata
+- jekyll-octicons
+
 # Build settings
 markdown: kramdown
 highlighter: rouge
@@ -43,12 +41,12 @@ quiet:    false
 defaults: []
 
 kramdown:
-  input: GFM
-  enable_coderay: true
-  syntax_highlighter: rouge
+ input: GFM
+ enable_coderay: true
+ syntax_highlighter: rouge
 
 syntax_highlighter_opts:
-   coderay_line_numbers:  nil
+ coderay_line_numbers:  nil
 
 # Pagination
 paginate: 10
@@ -57,87 +55,80 @@ paginate_path: 'page:num'
 # Navigation. If you do not like these modules, just remove them :D
 navs:
 
-  -
-    href: /
-    label: Home
+-
+ href: /
+ label: Home
 
-  -
-    href: /spring-boot.html
-    label: Spring-Boot
+-
+ href: /spring-boot.html
+ label: Spring-Boot
 
-  -
-    href: /spring-cloud.html
-    label: Spring-Cloud
+-
+ href: /spring-cloud.html
+ label: Spring-Cloud
 
-  -
-    href: /archives.html
-    label: Archives
+-
+ href: /archives.html
+ label: Archives
 
-  -
-    href: /link.html
-    label: Link
+-
+ href: /link.html
+ label: Link
 
-  -
-    href: /about.html
-    label: About
+-
+ href: /about.html
+ label: About
 
 
 # labels. my blog key words
 labels:
 
-  -
-    href: /share/2017/10/01/resource-sharing.html
-    name: 资源
+-
+ href: /share/2017/10/01/resource-sharing.html
+ name: 资源
 
-  -
-    href: /life.html
-    name: 故事
+-
+ href: /life.html
+ name: 故事
 
-  -
-    href: /arch.html
-    name: 架构
-    
-  -
-    href: /jvm.html
-    name: Jvm
+-
+ href: /arch.html
+ name: 架构
 
-  -
-    href: /fastdfs.html
-    name: FastDFS
+-
+ href: /jvm.html
+ name: Jvm
 
-  -
-    href: /mongodb.html
-    name: MongoDB
+-
+ href: /fastdfs.html
+ name: FastDFS
 
-  -
-    href: /docker.html
-    name: Docker
+-
+ href: /mongodb.html
+ name: MongoDB
 
-  -
-    href: /open-source.html
-    name: Code   
 
-  -
-    href: /it.html
-    name: It   
+-
+ href: /open-source.html
+ name: Code
 
 # selected articles
 classes:
 
-  -
-    href: /life.html
-    name: 我的故事
-    describe: 生活就是故事，故事就是生活
+-
+ href: /life.html
+ name: 我的故事
+ describe: 生活就是故事，故事就是生活
 
-  -
-    href: /arch.html
-    name: 架构师之路
-    describe: 一个架构师的自我修养
+-
+ href: /arch.html
+ name: 架构师之路
+ describe: 一个架构师的自我修养
 
-  -
-    href: /jvm.html
-    name: Jvm系列文章
-    describe: Java之根基，Java程序员必学
+-
+ href: /jvm.html
+ name: Jvm系列文章
+ describe: Java之根基，Java程序员必学
 
 
 # ---------------- #
@@ -166,22 +157,22 @@ skill_mobile_app_keywords: [vuejs, hyhird app]
 #      Comments    #
 # ---------------- #
 # support provider: disqus, gitment, gitalk
-##comments_provider: gitalk
+#comments_provider: gitalk
 # !!!重要!!! 请修改下面这些信息为你自己申请的
 # !!!Important!!! Please modify infos below to yours
 # https://disqus.com
-##disqus:
-##    username: ityouknow
+#disqus:
+#    username: ziyekudeng
 # https://imsun.net/posts/gitment-introduction/
 #gitment:
-#    owner: ityouknow
+#    owner: ziyekudeng
 #    repo: blog-comments
 #    oauth:
 #        client_id: 61bfc53d957e74e78f8f
 #        client_secret: 31c61e66cdcc9ada8db2267ee779d0bdafac434c
 # https://github.com/gitalk/gitalk#install
 #gitalk:
-#    owner: ityouknow
+#    owner: ziyekudeng
 #    repo: blog-comments
 #    clientID: 61bfc53d957e74e78f8f
 #    clientSecret: 31c61e66cdcc9ada8db2267ee779d0bdafac434c
