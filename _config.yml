@@ -6,11 +6,11 @@
 # 'jekyll serve'. If you change this file, please restart the server process.
 
 # Site settings
-title:  kokoyuo
-subtitle: 分享技术，品味人生
-name: kokoyuo
-description: 本站是kokoyuo的技术分享博客。内容涵盖生活故事、Java后端技术、数据库技术等相关的研究与知识分享。
-keywords: kokoyuo,Spring,Spring Boot,Spring Cloud,MongoDB,Jvm,Docker,生活故事,架构,大数据,一线,FastDFS,开发者,编程,代码,开源,IT网站,Developer,Programmer,Coder,Geek,IT技术博客,Java,Python,
+title:  Almost-Famous
+subtitle: '做技术就是大面积撒网，选择性捕捞.'
+name: Noseparte
+description: '拓展知识广度的同时深究所擅长领域的深度。本社区主要的技术内容涉及Java基础、Spring全家桶系列、Netty通信、数据库以及CentOS。还有不定期分享手游开发中的心得与技术解决方案。'
+keywords: Java、SpringBoot、Netty、MySQL、Redis、CentOS
 encoding: "utf-8"
 favicon: favicon.png
 
