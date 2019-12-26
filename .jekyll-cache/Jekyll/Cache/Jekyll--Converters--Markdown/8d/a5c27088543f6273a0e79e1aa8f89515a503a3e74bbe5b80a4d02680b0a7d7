@@ -1,0 +1,284 @@
+I"�F<p>数据在任何一家公司里面都是最核心的资产，定期备份则是为了保证数据库出现问题的时候能够及时回滚到最近的备份点，将损失缩小到最小</p>
+
+<p>这篇文章将会两部分来说明：1、mysql的定期备份；2、同步到其它服务器</p>
+
+<h2 id="mysql-备份">mysql 备份</h2>
+
+<h3 id="备份还原某个数据库">备份还原某个数据库</h3>
+
+<p>备份还原</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 导出数据库</span>
+/usr/bin/mysqldump <span class="nt">-u</span> root <span class="nt">-ppwd</span> database <span class="o">&gt;</span> database20160929.sql
+<span class="c"># 导入数据库</span>
+mysql <span class="nt">-u</span> root <span class="nt">-p</span> database &lt; database20160929.sql
+</code></pre></div></div>
+
+<p>备份到压缩文件从压缩文件导入</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#备份到压缩文件</span>
+/usr/bin/mysqldump <span class="nt">-u</span> root <span class="nt">-ppwd</span> database  | <span class="nb">gzip</span> <span class="o">&gt;</span> database20160929.sql.gz
+<span class="c">#从压缩文件导入</span>
+<span class="nb">gzip</span> &lt; database20160929.sql.gz | mysql <span class="nt">-u</span> root <span class="nt">-p</span> database
+</code></pre></div></div>
+
+<h3 id="crontab定时备份">crontab定时备份</h3>
+
+<p>1、创建备份目录</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># root 用户,创建备份目录</span>
+<span class="nb">mkdir</span> <span class="nt">-p</span> /bak/mysqlbak
+<span class="nb">cd</span> /bak/mysqldata
+</code></pre></div></div>
+
+<p>2、编写运行脚本</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi  /usr/sbin/bakmysql.sh
+</code></pre></div></div>
+
+<p>脚本代码：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/bash</span>
+<span class="c"># Name:bakmysql.sh</span>
+<span class="c"># This is a ShellScript For Auto DB Backup and Delete old Backup</span>
+<span class="c">#</span>
+<span class="nv">backupdir</span><span class="o">=</span>/bak/mysqlbak
+<span class="nb">time</span><span class="o">=</span><span class="sb">`</span> <span class="nb">date</span> +%Y%m%d%H <span class="sb">`</span>
+mysql_bin_dir/mysqldump <span class="nt">-u</span> root <span class="nt">-ppwd</span> database | <span class="nb">gzip</span> <span class="o">&gt;</span> <span class="nv">$backupdir</span>/database<span class="nv">$time</span>.sql.gz
+<span class="c">#</span>
+find <span class="nv">$backupdir</span> <span class="nt">-name</span> <span class="s2">"name_*.sql.gz"</span> <span class="nt">-type</span> f <span class="nt">-mtime</span> +7 <span class="nt">-exec</span> <span class="nb">rm</span> <span class="o">{}</span> <span class="p">;</span> <span class="o">&gt;</span> /dev/null 2&gt;&amp;1
+
+<span class="c">#</span>
+</code></pre></div></div>
+
+<p>脚本说明：</p>
+
+<blockquote>
+  <p><code class="highlighter-rouge">backupdir</code> mysql备份地址<br />
+<code class="highlighter-rouge">root</code> mysql用户名<br />
+<code class="highlighter-rouge">pwd</code> mysql密码<br />
+<code class="highlighter-rouge">database</code> 数据库名<br />
+<code class="highlighter-rouge">mysql_bin_dir</code> mysql的bin路径；<br />
+<code class="highlighter-rouge">time=` date +%Y%m%d%H `</code>也可以写为<code class="highlighter-rouge">time="$(date +"%Y%m%d$H")"</code>其中<code class="highlighter-rouge">`</code>  符号是TAB键上面的符号，不是ENTER左边的’符号，还有date后要有一个空格。<br />
+<code class="highlighter-rouge">type f</code>   表示查找普通类型的文件，f表示普通文件。<br />
+<code class="highlighter-rouge">mtime +7</code>   按照文件的更改时间来查找文件，+7表示文件更改时间距现在7天以前；如果是 -mmin +5 表示文件更改时间距现在5分钟以前。<br />
+<code class="highlighter-rouge">exec rm {} \</code>  表示执行一段shell命令，exec选项后面跟随着所要执行的命令或脚本，然后是一对儿{}，一个空格和一个\，最后是一个分号。<br />
+<code class="highlighter-rouge">/dev/null 2&gt;&amp;1</code>  把标准出错重定向到标准输出，然后扔到/DEV/NULL下面去。通俗的说，就是把所有标准输出和标准出错都扔到垃圾桶里面；其中的&amp; 表示让该命令在后台执行。</p>
+</blockquote>
+
+<p>3、为脚本添加执行权限</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># chmod +x /usr/sbin/bakmysql.sh</span>
+</code></pre></div></div>
+
+<p>4、设置crontab定时执行</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /etc/crontab 
+<span class="c">#在最后一行中加入：  </span>
+00 3 <span class="k">*</span> <span class="k">*</span> <span class="k">*</span> root /usr/sbin/bakmysql.sh
+<span class="c">#表示每天3点00分执行备份</span>
+</code></pre></div></div>
+
+<blockquote>
+  <p>注：crontab配置文件格式如下：<br />
+分　时　日　月　周　 命令</p>
+</blockquote>
+
+<p>5、重启crontab</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/rc.d/init.d/crond restart  
+</code></pre></div></div>
+
+<p>这样就完了定时备份并清理前7天的备份数据</p>
+
+<h2 id="同步到其它服务器">同步到其它服务器</h2>
+
+<p>这里使用Linux同步文件工具rsync+inotify来进行文件的同步</p>
+
+<h3 id="rsync">rsync</h3>
+
+<p>rsync是类unix系统下的数据镜像备份工具——remote sync。一款快速增量备份工具 Remote Sync，远程同步 支持本地复制，或者与其他SSH、rsync主机同步</p>
+
+<p><strong>用法</strong></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rsync src dest
+</code></pre></div></div>
+
+<p>这是最简单的用法，表示同步src,dest文件。（即，执行之后，dest的文件与src的相同，以src的为准)</p>
+
+<p>常用选项</p>
+<blockquote>
+  <p><code class="highlighter-rouge">-a</code>: 等价于-rlptgoD,归档式<br />
+<code class="highlighter-rouge">-r</code>: 递归<br />
+<code class="highlighter-rouge">-l</code>: 复制软件链接<br />
+<code class="highlighter-rouge">-p</code>: 保留权限信息<br />
+<code class="highlighter-rouge">-t</code>: 将src的修改时间，同步到dest<br />
+<code class="highlighter-rouge">-g</code>: 同步组信息(group)<br />
+<code class="highlighter-rouge">-o</code>: 同步拥有者信息(own)<br />
+<code class="highlighter-rouge">-D</code>: 保持字符与块设备文件<br />
+<code class="highlighter-rouge">-z</code>: 启用压缩传输<br />
+<code class="highlighter-rouge">–delete</code>：如果src没有此文件，那么dest也不能有，即在dest删除src里没有的文件。（如果你使用这个选项，就必须搭配-r选项一起）</p>
+</blockquote>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">## 将本地/bak/mysqlbak/文件同步到 远程服务器 /bak/mysql/bak 目录下面 排除 mysqlbak/index目录 通过ssh端口</span>
+rsync <span class="nt">-vzacu</span>  /bak/mysqlbak/  root@192.168.53.86:/bak/mysqlbak   <span class="nt">--exclude</span>  <span class="s2">"mysqlbak/index"</span>   <span class="nt">-e</span> <span class="s2">"ssh -p 22"</span>
+<span class="c"># 将远程目录 /bak/mysqlbak下的文件同步到本地 /bak/mysqlbak/目录下</span>
+rsync <span class="nt">-vzrtopg</span> <span class="nt">--progress</span> <span class="nt">--delete</span> root@192.168.53.85:/bak/mysqlbak  /bak
+</code></pre></div></div>
+
+<p><strong>启用rsync服务器端同步远程文件</strong></p>
+
+<p>rsycn的服务端为服务器的文件接收端，rsycn的客户端为服务器的文件推动端。</p>
+
+<p><strong>rsycn的服务端/文件接收端配置</strong></p>
+
+<p>服务端需要开启rsyncd服务</p>
+
+<p>添加配置文件rsyncd.conf</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /etc/rsyncd.conf
+<span class="c">#以下是全局配置</span>
+log file <span class="o">=</span> /var/log/rsyncd.log
+pid file <span class="o">=</span> /var/run/rsyncd.pid
+lock file <span class="o">=</span> /var/lock/rsyncd
+<span class="o">[</span>mysqlbak]     <span class="c">#模块名，在源服务器指定这个名字</span>
+   comment <span class="o">=</span> <span class="nb">sync </span>rsync/home      <span class="c">#描述信息</span>
+   path <span class="o">=</span> /bak/mysqlbak      <span class="c">#备份目录</span>
+   use <span class="nb">chroot</span><span class="o">=</span>no           <span class="c">#不使用chroot，不用root权限</span>
+   <span class="nb">read </span>only <span class="o">=</span> no          <span class="c">#设置本地备份目录为读写权限</span>
+   <span class="nv">uid</span><span class="o">=</span>root          
+   <span class="nv">gid</span><span class="o">=</span>root
+   max <span class="nv">connections</span><span class="o">=</span>10       <span class="c">#客户端最大连接数</span>
+   auth <span class="nb">users</span> <span class="o">=</span> root      <span class="c">#指定数据同步用户</span>
+   secrets file <span class="o">=</span> /etc/rsyncd.pass          <span class="c">#指定数据同步用户信息文件</span>
+   hosts <span class="nv">allow</span><span class="o">=</span>192.168.53.0/85     <span class="c">#允许连接的客户端</span>
+   ignore errors <span class="o">=</span> <span class="nb">yes</span>     <span class="c">#忽略出现I/O错误</span>
+   <span class="nb">timeout</span> <span class="o">=</span> 600
+</code></pre></div></div>
+
+<p>创建认证文件</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  vi /etc/rsyncd.pass
+  <span class="c">##代码</span>
+  root:root      <span class="c">#格式是用户名：密码</span>
+  <span class="c">#属主要有权限读这个文件，否则会报没权限</span>
+  <span class="nb">chmod </span>600 /etc/rsyncd.pass  
+</code></pre></div></div>
+
+<p>修改/etc/xinetd.d/rsync文件，disable 改为 no</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>service rsync
+<span class="o">{</span>
+        disable <span class="o">=</span> no
+        socket_type     <span class="o">=</span> stream
+        <span class="nb">wait</span>            <span class="o">=</span> no
+        user            <span class="o">=</span> root
+        server          <span class="o">=</span> /usr/bin/rsync
+        server_args     <span class="o">=</span> <span class="nt">--daemon</span>
+        log_on_failure  +<span class="o">=</span> USERID
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>启动服务端</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rsync <span class="nt">--daemon</span> <span class="nt">--config</span><span class="o">=</span>/etc/rsyncd.conf
+</code></pre></div></div>
+
+<p><strong>rsycn的客户端/文件发送端配置</strong></p>
+
+<p>客户端配置简单 只需要配置密码既可</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  vi /etc/rsync_client.pwd
+  <span class="c">##代码</span>
+  root    <span class="c">#只需要填写rsync服务的密码</span>
+  <span class="c">#属主要有权限读这个文件，否则会报没权限</span>
+  <span class="nb">chmod </span>600 /etc/rsync_client.pwd 
+</code></pre></div></div>
+
+<p>客户端同步测试</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/usr/bin/rsync <span class="nt">-auvrtzopgP</span> <span class="nt">--progress</span> <span class="nt">--password-file</span><span class="o">=</span>/etc/rsync_client.pwd /bak/mysqlbak/ root@192.168.53.86::mysqlbak
+</code></pre></div></div>
+
+<blockquote>
+  <p><strong>rsync只是一次性同步,如果需要实时同步就需要引入另一个工具了</strong></p>
+</blockquote>
+
+<h3 id="inotify">inotify</h3>
+
+<p>Inotify 是一种强大的、细粒度的、异步的文件系统事件监控机制，linux内核从2.6.13起，加入了Inotify支持，通过Inotify可以监控文件系统中添加、删除，修改、移动等各种细微事件，利用这个内核接口，第三方软件就可以监控文件系统下文件的各种变化情况，而inotify-tools就是这样的一个第三方软件。</p>
+
+<blockquote>
+  <p>Inotify只需要要按照部署在同步的客户端，当监控的文件有变化触动 rsync脚本来同步</p>
+</blockquote>
+
+<p>安装</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>yum <span class="nb">install </span>inotify-tools
+</code></pre></div></div>
+
+<p>配置监控的文件路径</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /etc/inotify_exclude.lst
+<span class="c">#代码</span>
+/bak/mysqlbak <span class="c">#监控目录</span>
+@/bak/log <span class="c">#排除监控目录</span>
+</code></pre></div></div>
+
+<p>rsync排除监控文件目录</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /etc/rsyncd.d/rsync_exclude.lst
+<span class="c">#代码</span>
+src/<span class="k">*</span>.html<span class="k">*</span>
+src/js/
+src/2014/20140[1-9]/
+</code></pre></div></div>
+
+<p>客户端同步到远程的脚本rsync.sh</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#rsync auto sync script with inotify</span>
+<span class="c">#variables</span>
+<span class="nv">current_date</span><span class="o">=</span><span class="si">$(</span><span class="nb">date</span> +%Y%m%d_%H%M%S<span class="si">)</span>
+<span class="nv">source_path</span><span class="o">=</span>/bak/mysqlbak/
+<span class="nv">log_file</span><span class="o">=</span>/var/log/rsync_client.log
+<span class="c">#rsync</span>
+<span class="nv">rsync_server</span><span class="o">=</span>192.168.53.86
+<span class="nv">rsync_user</span><span class="o">=</span>root
+<span class="nv">rsync_pwd</span><span class="o">=</span>/etc/rsync_client.pwd
+<span class="nv">rsync_module</span><span class="o">=</span>mysqlbak
+<span class="nv">INOTIFY_EXCLUDE</span><span class="o">=</span><span class="s1">'(.*/*\.log|.*/*\.swp)$|^/tmp/src/mail/(2014|20.*/.*che.*)'</span>
+<span class="nv">RSYNC_EXCLUDE</span><span class="o">=</span><span class="s1">'/bak/rsync_exclude.lst'</span>
+<span class="c">#rsync client pwd check</span>
+<span class="k">if</span> <span class="o">[</span> <span class="o">!</span> <span class="nt">-e</span> <span class="k">${</span><span class="nv">rsync_pwd</span><span class="k">}</span> <span class="o">]</span><span class="p">;</span><span class="k">then
+    </span><span class="nb">echo</span> <span class="nt">-e</span> <span class="s2">"rsync client passwod file </span><span class="k">${</span><span class="nv">rsync_pwd</span><span class="k">}</span><span class="s2"> does not exist!"</span>
+    <span class="nb">exit </span>0
+<span class="k">fi</span>
+<span class="c">#inotify_function</span>
+inotify_fun<span class="o">(){</span>
+    /usr/bin/inotifywait <span class="nt">-mrq</span> <span class="nt">--timefmt</span> <span class="s1">'%Y/%m/%d-%H:%M:%S'</span> <span class="nt">--format</span> <span class="s1">'%T %w %f'</span> <span class="se">\</span>
+          <span class="nt">--exclude</span> <span class="k">${</span><span class="nv">INOTIFY_EXCLUDE</span><span class="k">}</span>  <span class="nt">-e</span> modify,delete,create,move,attrib <span class="k">${</span><span class="nv">source_path</span><span class="k">}</span> <span class="se">\</span>
+          | <span class="k">while </span><span class="nb">read </span>file
+      <span class="k">do</span>
+          /usr/bin/rsync <span class="nt">-auvrtzopgP</span> <span class="nt">--exclude-from</span><span class="o">=</span><span class="k">${</span><span class="nv">RSYNC_EXCLUDE</span><span class="k">}</span> <span class="nt">--progress</span> <span class="nt">--bwlimit</span><span class="o">=</span>200 <span class="nt">--password-file</span><span class="o">=</span><span class="k">${</span><span class="nv">rsync_pwd</span><span class="k">}</span> <span class="k">${</span><span class="nv">source_path</span><span class="k">}</span> <span class="k">${</span><span class="nv">rsync_user</span><span class="k">}</span>@<span class="k">${</span><span class="nv">rsync_server</span><span class="k">}</span>::<span class="k">${</span><span class="nv">rsync_module</span><span class="k">}</span> 
+      <span class="k">done</span>
+<span class="o">}</span>
+<span class="c">#inotify log</span>
+inotify_fun <span class="o">&gt;&gt;</span> <span class="k">${</span><span class="nv">log_file</span><span class="k">}</span> 2&gt;&amp;1 &amp;
+</code></pre></div></div>
+
+<p>给脚本执行权限，执行后就可以了</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">chmod </span>777 rsync.sh
+./rsync.sh 
+</code></pre></div></div>
+
+<h2 id="参考">参考：</h2>
+
+<p><a href="http://seanlook.com/2014/12/12/rsync_inotify_setup/">Linux下同步工具inotify+rsync使用详解</a></p>
+
+<hr />
+
+<p><strong>作者：纯洁的微笑</strong><br />
+<strong>出处：<a href="http://www.ityouknow.com">www.ityouknow.com</a></strong> <br />
+<strong>版权所有，欢迎保留原文链接进行转载 :)</strong></p>
+:ET

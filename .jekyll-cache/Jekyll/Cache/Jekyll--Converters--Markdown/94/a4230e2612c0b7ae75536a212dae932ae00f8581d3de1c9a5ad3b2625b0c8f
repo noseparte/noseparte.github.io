@@ -1,0 +1,312 @@
+I"v<p>这篇文章介绍如何使用jpa和thymeleaf做一个增删改查的示例。</p>
+
+<p>先和大家聊聊我为什么喜欢写这种脚手架的项目，在我学习一门新技术的时候，总是想快速的搭建起一个demo来试试它的效果，越简单越容易上手最好。在网上找相关资料的时候总是很麻烦，有的文章写的挺不错的但是没有源代码，有的有源代码但是文章介绍又不是很清楚，所在找资料的时候稍微有点费劲。因此在我学习Spring Boot的时候，会写一些最简单基本的示例项目，一方面方便其它朋友以最快的方式去了解，一方面如果我的项目需要用到相关技术的时候，直接在这个示例版本去改造或者集成就可以。</p>
+
+<p>现在的技术博客有很多的流派，有的喜欢分析源码，有的倾向于底层原理，我最喜欢写这种小而美的示例，方便自己方便他人。</p>
+
+<p>其实以前写过thymeleaf和jpa的相关文章：<a href="http://www.ityouknow.com/springboot/2016/05/01/springboot(%E5%9B%9B)-thymeleaf%E4%BD%BF%E7%94%A8%E8%AF%A6%E8%A7%A3.html">springboot(四)：thymeleaf使用详解</a>和<a href="http://www.ityouknow.com/springboot/2016/08/20/springboot(%E4%BA%94)-spring-data-jpa%E7%9A%84%E4%BD%BF%E7%94%A8.html">springboot(五)：spring data jpa的使用</a> 里面的代码示例都给的云收藏的内容<a href="https://github.com/cloudfavorites/favorites-web">Favorites-web</a>，云收藏的内容比较多，查找起来不是很方便，因此想重新整理一篇快速上手、简单的内容，来介绍jpa和thymeleaf的使用，也就是本文的内容。</p>
+
+<p>这篇文章就不在介绍什么是jpa、thymeleaf，如果还不了解这些基本的概念，可以先移步前两篇相关文章。</p>
+
+<h2 id="快速上手">快速上手</h2>
+
+<h3 id="配置文件">配置文件</h3>
+
+<p><strong>pom包配置</strong></p>
+
+<p>pom包里面添加jpa和thymeleaf的相关包引用</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependency&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-web<span class="nt">&lt;/artifactId&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;dependency&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-thymeleaf<span class="nt">&lt;/artifactId&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;dependency&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-data-jpa<span class="nt">&lt;/artifactId&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;dependency&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>mysql<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>mysql-connector-java<span class="nt">&lt;/artifactId&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+</code></pre></div></div>
+
+<p><strong>在application.properties中添加配置</strong></p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">spring.datasource.url</span><span class="p">=</span><span class="s">jdbc:mysql://127.0.0.1/test?useUnicode=true&amp;characterEncoding=utf-8&amp;serverTimezone=UTC&amp;useSSL=true</span>
+<span class="py">spring.datasource.username</span><span class="p">=</span><span class="s">root</span>
+<span class="py">spring.datasource.password</span><span class="p">=</span><span class="s">root</span>
+<span class="py">spring.datasource.driver-class-name</span><span class="p">=</span><span class="s">com.mysql.jdbc.Driver</span>
+
+<span class="py">spring.jpa.properties.hibernate.hbm2ddl.auto</span><span class="p">=</span><span class="s">update</span>
+<span class="py">spring.jpa.properties.hibernate.dialect</span><span class="p">=</span><span class="s">org.hibernate.dialect.MySQL5InnoDBDialect</span>
+<span class="py">spring.jpa.show-sql</span><span class="p">=</span> <span class="s">true</span>
+
+<span class="py">spring.thymeleaf.cache</span><span class="p">=</span><span class="s">false</span>
+</code></pre></div></div>
+
+<p>其中<code class="highlighter-rouge">propertiesspring.thymeleaf.cache=false</code>是关闭thymeleaf的缓存，不然在开发过程中修改页面不会立刻生效需要重启，生产可配置为true。</p>
+
+<p>在项目resources目录下会有两个文件夹：static目录用于放置网站的静态内容如css、js、图片；templates目录用于放置项目使用的页面模板。</p>
+
+<h3 id="启动类">启动类</h3>
+
+<p>启动类需要添加Servlet的支持</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@SpringBootApplication</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">JpaThymeleafApplication</span> <span class="kd">extends</span> <span class="nc">SpringBootServletInitializer</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="nc">SpringApplicationBuilder</span> <span class="nf">configure</span><span class="o">(</span><span class="nc">SpringApplicationBuilder</span> <span class="n">application</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">application</span><span class="o">.</span><span class="na">sources</span><span class="o">(</span><span class="nc">JpaThymeleafApplication</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="nc">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="nc">SpringApplication</span><span class="o">.</span><span class="na">run</span><span class="o">(</span><span class="nc">JpaThymeleafApplication</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="n">args</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="数据库层代码">数据库层代码</h3>
+
+<p>实体类映射数据库表</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Entity</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">User</span> <span class="o">{</span>
+    <span class="nd">@Id</span>
+    <span class="nd">@GeneratedValue</span>
+    <span class="kd">private</span> <span class="kt">long</span> <span class="n">id</span><span class="o">;</span>
+    <span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">false</span><span class="o">,</span> <span class="n">unique</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+    <span class="kd">private</span> <span class="nc">String</span> <span class="n">userName</span><span class="o">;</span>
+    <span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">false</span><span class="o">)</span>
+    <span class="kd">private</span> <span class="nc">String</span> <span class="n">password</span><span class="o">;</span>
+    <span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">false</span><span class="o">)</span>
+    <span class="kd">private</span> <span class="kt">int</span> <span class="n">age</span><span class="o">;</span>
+    <span class="o">...</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>继承JpaRepository类会自动实现很多内置的方法，包括增删改查。也可以根据方法名来自动生成相关sql，具体可以参考：<a href="http://www.ityouknow.com/springboot/2016/08/20/springboot(%E4%BA%94)-spring-data-jpa%E7%9A%84%E4%BD%BF%E7%94%A8.html">springboot(五)：spring data jpa的使用</a></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">UserRepository</span> <span class="kd">extends</span> <span class="nc">JpaRepository</span><span class="o">&lt;</span><span class="nc">User</span><span class="o">,</span> <span class="nc">Long</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="nc">User</span> <span class="nf">findById</span><span class="o">(</span><span class="kt">long</span> <span class="n">id</span><span class="o">);</span>
+    <span class="nc">Long</span> <span class="nf">deleteById</span><span class="o">(</span><span class="nc">Long</span> <span class="n">id</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="业务层处理">业务层处理</h3>
+
+<p>service调用jpa实现相关的增删改查，实际项目中service层处理具体的业务代码。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Service</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">UserServiceImpl</span> <span class="kd">implements</span> <span class="nc">UserService</span><span class="o">{</span>
+
+    <span class="nd">@Autowired</span>
+    <span class="kd">private</span> <span class="nc">UserRepository</span> <span class="n">userRepository</span><span class="o">;</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">User</span><span class="o">&gt;</span> <span class="nf">getUserList</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">userRepository</span><span class="o">.</span><span class="na">findAll</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="nc">User</span> <span class="nf">findUserById</span><span class="o">(</span><span class="kt">long</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">userRepository</span><span class="o">.</span><span class="na">findById</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">save</span><span class="o">(</span><span class="nc">User</span> <span class="n">user</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">userRepository</span><span class="o">.</span><span class="na">save</span><span class="o">(</span><span class="n">user</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">edit</span><span class="o">(</span><span class="nc">User</span> <span class="n">user</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">userRepository</span><span class="o">.</span><span class="na">save</span><span class="o">(</span><span class="n">user</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">delete</span><span class="o">(</span><span class="kt">long</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">userRepository</span><span class="o">.</span><span class="na">delete</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>Controller负责接收请求，处理完后将页面内容返回给前端。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Controller</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">UserController</span> <span class="o">{</span>
+
+    <span class="nd">@Resource</span>
+    <span class="nc">UserService</span> <span class="n">userService</span><span class="o">;</span>
+
+
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">index</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="s">"redirect:/list"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/list"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">list</span><span class="o">(</span><span class="nc">Model</span> <span class="n">model</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">List</span><span class="o">&lt;</span><span class="nc">User</span><span class="o">&gt;</span> <span class="n">users</span><span class="o">=</span><span class="n">userService</span><span class="o">.</span><span class="na">getUserList</span><span class="o">();</span>
+        <span class="n">model</span><span class="o">.</span><span class="na">addAttribute</span><span class="o">(</span><span class="s">"users"</span><span class="o">,</span> <span class="n">users</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"user/list"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/toAdd"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">toAdd</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="s">"user/userAdd"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/add"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">add</span><span class="o">(</span><span class="nc">User</span> <span class="n">user</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">userService</span><span class="o">.</span><span class="na">save</span><span class="o">(</span><span class="n">user</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"redirect:/list"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/toEdit"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">toEdit</span><span class="o">(</span><span class="nc">Model</span> <span class="n">model</span><span class="o">,</span><span class="nc">Long</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">User</span> <span class="n">user</span><span class="o">=</span><span class="n">userService</span><span class="o">.</span><span class="na">findUserById</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+        <span class="n">model</span><span class="o">.</span><span class="na">addAttribute</span><span class="o">(</span><span class="s">"user"</span><span class="o">,</span> <span class="n">user</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"user/userEdit"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/edit"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">edit</span><span class="o">(</span><span class="nc">User</span> <span class="n">user</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">userService</span><span class="o">.</span><span class="na">edit</span><span class="o">(</span><span class="n">user</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"redirect:/list"</span><span class="o">;</span>
+    <span class="o">}</span>
+
+
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/delete"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">delete</span><span class="o">(</span><span class="nc">Long</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">userService</span><span class="o">.</span><span class="na">delete</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+        <span class="k">return</span> <span class="s">"redirect:/list"</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<ul>
+  <li><code class="highlighter-rouge">return "user/userEdit";</code> 代表会直接去resources目录下找相关的文件。</li>
+  <li><code class="highlighter-rouge">return "redirect:/list";</code> 代表转发到对应的controller，这个示例就相当于删除内容之后自动调整到list请求，然后再输出到页面。</li>
+</ul>
+
+<h3 id="页面内容">页面内容</h3>
+
+<p>list列表</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html</span> <span class="na">lang=</span><span class="s">"en"</span> <span class="na">xmlns:th=</span><span class="s">"http://www.thymeleaf.org"</span><span class="nt">&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"UTF-8"</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;title&gt;</span>userList<span class="nt">&lt;/title&gt;</span>
+    <span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="na">th:href=</span><span class="s">"@{/css/bootstrap.css}"</span><span class="nt">&gt;&lt;/link&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body</span> <span class="na">class=</span><span class="s">"container"</span><span class="nt">&gt;</span>
+<span class="nt">&lt;br/&gt;</span>
+<span class="nt">&lt;h1&gt;</span>用户列表<span class="nt">&lt;/h1&gt;</span>
+<span class="nt">&lt;br/&gt;&lt;br/&gt;</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"with:80%"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;table</span> <span class="na">class=</span><span class="s">"table table-hover"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;thead&gt;</span>
+        <span class="nt">&lt;tr&gt;</span>
+            <span class="nt">&lt;th&gt;</span>#<span class="nt">&lt;/th&gt;</span>
+            <span class="nt">&lt;th&gt;</span>User Name<span class="nt">&lt;/th&gt;</span>
+            <span class="nt">&lt;th&gt;</span>Password<span class="nt">&lt;/th&gt;</span>
+            <span class="nt">&lt;th&gt;</span>Age<span class="nt">&lt;/th&gt;</span>
+            <span class="nt">&lt;th&gt;</span>Edit<span class="nt">&lt;/th&gt;</span>
+            <span class="nt">&lt;th&gt;</span>Delete<span class="nt">&lt;/th&gt;</span>
+        <span class="nt">&lt;/tr&gt;</span>
+        <span class="nt">&lt;/thead&gt;</span>
+        <span class="nt">&lt;tbody&gt;</span>
+        <span class="nt">&lt;tr</span>  <span class="na">th:each=</span><span class="s">"user : ${users}"</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;th</span> <span class="na">scope=</span><span class="s">"row"</span> <span class="na">th:text=</span><span class="s">"${user.id}"</span><span class="nt">&gt;</span>1<span class="nt">&lt;/th&gt;</span>
+            <span class="nt">&lt;td</span> <span class="na">th:text=</span><span class="s">"${user.userName}"</span><span class="nt">&gt;</span>neo<span class="nt">&lt;/td&gt;</span>
+            <span class="nt">&lt;td</span> <span class="na">th:text=</span><span class="s">"${user.password}"</span><span class="nt">&gt;</span>Otto<span class="nt">&lt;/td&gt;</span>
+            <span class="nt">&lt;td</span> <span class="na">th:text=</span><span class="s">"${user.age}"</span><span class="nt">&gt;</span>6<span class="nt">&lt;/td&gt;</span>
+            <span class="nt">&lt;td&gt;&lt;a</span> <span class="na">th:href=</span><span class="s">"@{/toEdit(id=${user.id})}"</span><span class="nt">&gt;</span>edit<span class="nt">&lt;/a&gt;&lt;/td&gt;</span>
+            <span class="nt">&lt;td&gt;&lt;a</span> <span class="na">th:href=</span><span class="s">"@{/delete(id=${user.id})}"</span><span class="nt">&gt;</span>delete<span class="nt">&lt;/a&gt;&lt;/td&gt;</span>
+        <span class="nt">&lt;/tr&gt;</span>
+        <span class="nt">&lt;/tbody&gt;</span>
+    <span class="nt">&lt;/table&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"form-group"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"col-sm-2 control-label"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">"/toAdd"</span> <span class="na">th:href=</span><span class="s">"@{/toAdd}"</span> <span class="na">class=</span><span class="s">"btn btn-info"</span><span class="nt">&gt;</span>add<span class="nt">&lt;/a&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+
+<p>效果图：</p>
+
+<p><img src="http://www.itmind.net/assets/images/2017/springboot/list.png" alt="" /></p>
+
+<p><code class="highlighter-rouge">&lt;tr  th:each="user : ${users}"&gt;</code> 这里会从controler层model set的对象去获取相关的内容，<code class="highlighter-rouge">th:each</code>表示会循环遍历对象内容。</p>
+
+<p>其实还有其它的写法，具体的语法内容可以参考这篇文章：<a href="http://www.ityouknow.com/springboot/2016/05/01/springboot(%E5%9B%9B)-thymeleaf%E4%BD%BF%E7%94%A8%E8%AF%A6%E8%A7%A3.html">springboot(四)：thymeleaf使用详解</a></p>
+
+<p>修改页面：</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html</span> <span class="na">lang=</span><span class="s">"en"</span> <span class="na">xmlns:th=</span><span class="s">"http://www.thymeleaf.org"</span><span class="nt">&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"UTF-8"</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;title&gt;</span>user<span class="nt">&lt;/title&gt;</span>
+    <span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="na">th:href=</span><span class="s">"@{/css/bootstrap.css}"</span><span class="nt">&gt;&lt;/link&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body</span> <span class="na">class=</span><span class="s">"container"</span><span class="nt">&gt;</span>
+<span class="nt">&lt;br/&gt;</span>
+<span class="nt">&lt;h1&gt;</span>修改用户<span class="nt">&lt;/h1&gt;</span>
+<span class="nt">&lt;br/&gt;&lt;br/&gt;</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"with:80%"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;form</span> <span class="na">class=</span><span class="s">"form-horizontal"</span>   <span class="na">th:action=</span><span class="s">"@{/edit}"</span> <span class="na">th:object=</span><span class="s">"${user}"</span>  <span class="na">method=</span><span class="s">"post"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"hidden"</span> <span class="na">name=</span><span class="s">"id"</span> <span class="na">th:value=</span><span class="s">"*{id}"</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"form-group"</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;label</span> <span class="na">for=</span><span class="s">"userName"</span> <span class="na">class=</span><span class="s">"col-sm-2 control-label"</span><span class="nt">&gt;</span>userName<span class="nt">&lt;/label&gt;</span>
+            <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"col-sm-10"</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">class=</span><span class="s">"form-control"</span> <span class="na">name=</span><span class="s">"userName"</span>  <span class="na">id=</span><span class="s">"userName"</span> <span class="na">th:value=</span><span class="s">"*{userName}"</span> <span class="na">placeholder=</span><span class="s">"userName"</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;/div&gt;</span>
+        <span class="nt">&lt;/div&gt;</span>
+        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"form-group"</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;label</span> <span class="na">for=</span><span class="s">"password"</span> <span class="na">class=</span><span class="s">"col-sm-2 control-label"</span> <span class="nt">&gt;</span>Password<span class="nt">&lt;/label&gt;</span>
+            <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"col-sm-10"</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"password"</span> <span class="na">class=</span><span class="s">"form-control"</span> <span class="na">name=</span><span class="s">"password"</span> <span class="na">id=</span><span class="s">"password"</span>  <span class="na">th:value=</span><span class="s">"*{password}"</span> <span class="na">placeholder=</span><span class="s">"Password"</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;/div&gt;</span>
+        <span class="nt">&lt;/div&gt;</span>
+        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"form-group"</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;label</span> <span class="na">for=</span><span class="s">"age"</span> <span class="na">class=</span><span class="s">"col-sm-2 control-label"</span><span class="nt">&gt;</span>age<span class="nt">&lt;/label&gt;</span>
+            <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"col-sm-10"</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">class=</span><span class="s">"form-control"</span> <span class="na">name=</span><span class="s">"age"</span>  <span class="na">id=</span><span class="s">"age"</span> <span class="na">th:value=</span><span class="s">"*{age}"</span> <span class="na">placeholder=</span><span class="s">"age"</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;/div&gt;</span>
+        <span class="nt">&lt;/div&gt;</span>
+        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"form-group"</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"col-sm-offset-2 col-sm-10"</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"submit"</span> <span class="na">value=</span><span class="s">"Submit"</span> <span class="na">class=</span><span class="s">"btn btn-info"</span> <span class="nt">/&gt;</span>
+                <span class="ni">&amp;nbsp;</span> <span class="ni">&amp;nbsp;</span> <span class="ni">&amp;nbsp;</span>
+                <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">"/toAdd"</span> <span class="na">th:href=</span><span class="s">"@{/list}"</span> <span class="na">class=</span><span class="s">"btn btn-info"</span><span class="nt">&gt;</span>Back<span class="nt">&lt;/a&gt;</span>
+            <span class="nt">&lt;/div&gt;</span>
+
+        <span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;/form&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+<p>添加页面和修改类似就不在贴代码了。</p>
+
+<p>效果图：</p>
+
+<p><img src="http://www.itmind.net/assets/images/2017/springboot/edit.png" alt="" /></p>
+
+<p>这样一个使用jpa和thymeleaf的增删改查示例就完成了。</p>
+
+<p>当然所以的示例代码都在这里：</p>
+
+<p><strong><a href="https://github.com/ityouknow/spring-boot-examples">示例代码-github</a></strong></p>
+
+<p><strong><a href="https://gitee.com/ityouknow/spring-boot-examples">示例代码-码云</a></strong></p>
+:ET

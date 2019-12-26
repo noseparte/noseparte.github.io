@@ -1,0 +1,30 @@
+I"<p>spring 项目建议使用Gradle进行构建项目，相比maven来讲Gradle更简洁，而且gradle更时候大型复杂项目的构建。gradle吸收了maven和ant的特点而来，不过目前maven仍然是Java界的主流</p>
+
+<h3 id="命令">命令</h3>
+<p>1、gradle build  编译</p>
+
+<h4 id="execution-failed-for-task-compilejava">Execution failed for task ‘:compileJava’.</h4>
+<blockquote>
+  <p>无效的源发行版: 1.8</p>
+</blockquote>
+
+<p>报错不匹配的Java编译版本</p>
+
+<p>使用<code class="highlighter-rouge">gradle -version</code> 查看gradle支持的jdk版本号，如果不是1.8,修改本地的Java_home环境变量为1.8，在次执行OK。</p>
+
+<h3 id="-what-went-wrong">* What went wrong:</h3>
+<p>Execution failed for task ‘:findMainClass’.</p>
+<blockquote>
+  <p>Unable to find a single main class from the following candidates [**]</p>
+</blockquote>
+
+<p>报错没有找到主入口</p>
+
+<p>build.gradle 添加</p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">springBoot</span> <span class="err">{</span>
+  <span class="py">mainClass</span> <span class="p">=</span> <span class="s">"com.favorites.Application"</span>
+<span class="err">}</span>
+</code></pre></div></div>
+
+:ET

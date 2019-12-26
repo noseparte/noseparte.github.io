@@ -1,0 +1,277 @@
+I"RO<p>我们在<a href="http://www.ityouknow.com/springcloud/2017/05/23/springcloud-config-svn-refresh.html">springcloud(七)：配置中心svn示例和refresh</a>中讲到，如果需要客户端获取到最新的配置信息需要执行<code class="highlighter-rouge">refresh</code>，我们可以利用webhook的机制每次提交代码发送请求来刷新客户端，当客户端越来越多的时候，需要每个客户端都执行一遍，这种方案就不太适合了。使用Spring Cloud Bus可以完美解决这一问题。</p>
+
+<h2 id="spring-cloud-bus">Spring Cloud Bus</h2>
+
+<p>Spring cloud bus通过轻量消息代理连接各个分布的节点。这会用在广播状态的变化（例如配置变化）或者其他的消息指令。Spring bus的一个核心思想是通过分布式的启动器对spring boot应用进行扩展，也可以用来建立一个多个应用之间的通信频道。目前唯一实现的方式是用AMQP消息代理作为通道，同样特性的设置（有些取决于通道的设置）在更多通道的文档中。</p>
+
+<p>Spring cloud bus被国内很多都翻译为消息总线，也挺形象的。大家可以将它理解为管理和传播所有分布式项目中的消息既可，其实本质是利用了MQ的广播机制在分布式的系统中传播消息，目前常用的有Kafka和RabbitMQ。利用bus的机制可以做很多的事情，其中配置中心客户端刷新就是典型的应用场景之一，我们用一张图来描述bus在配置中心使用的机制。</p>
+
+<p><img src="http://www.itmind.net/assets/images/2017/springcloud/configbus1.jpg" alt="" /></p>
+
+<p>根据此图我们可以看出利用Spring Cloud Bus做配置更新的步骤:</p>
+
+<ul>
+  <li>1、提交代码触发post给客户端A发送bus/refresh</li>
+  <li>2、客户端A接收到请求从Server端更新配置并且发送给Spring Cloud Bus</li>
+  <li>3、Spring Cloud bus接到消息并通知给其它客户端</li>
+  <li>4、其它客户端接收到通知，请求Server端获取最新配置</li>
+  <li>5、全部客户端均获取到最新的配置</li>
+</ul>
+
+<h2 id="项目示例">项目示例</h2>
+
+<p>我们选择上一篇文章<a href="http://www.ityouknow.com/springcloud/2017/05/25/springcloud-config-eureka.html">springcloud(八)：配置中心服务化和高可用</a>版本的<a href="https://github.com/ityouknow/spring-cloud-starter/tree/master/spring-cloud-config-eureka">示例代码</a>来改造,MQ我们使用RabbitMQ来做示例。</p>
+
+<p><strong>客户端spring-cloud-config-client改造</strong></p>
+
+<h3 id="1添加依赖">1、添加依赖</h3>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependency&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>org.springframework.cloud<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>spring-cloud-starter-bus-amqp<span class="nt">&lt;/artifactId&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+</code></pre></div></div>
+
+<p>需要多引入<code class="highlighter-rouge">spring-cloud-starter-bus-amqp</code>包，增加对消息总线的支持</p>
+
+<h3 id="2配置文件">2、配置文件</h3>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">## 刷新时，关闭安全验证
+</span><span class="py">management.security.enabled</span><span class="p">=</span><span class="s">false</span>
+<span class="c">## 开启消息跟踪
+</span><span class="py">spring.cloud.bus.trace.enabled</span><span class="p">=</span><span class="s">true</span>
+
+<span class="py">spring.rabbitmq.host</span><span class="p">=</span><span class="s">192.168.9.89</span>
+<span class="py">spring.rabbitmq.port</span><span class="p">=</span><span class="s">5672</span>
+<span class="py">spring.rabbitmq.username</span><span class="p">=</span><span class="s">admin</span>
+<span class="py">spring.rabbitmq.password</span><span class="p">=</span><span class="s">123456</span>
+</code></pre></div></div>
+
+<p>配置文件需要增加RebbitMq的相关配置，这样客户端代码就改造完成了。</p>
+
+<h3 id="3测试">3、测试</h3>
+
+<p>依次启动spring-cloud-eureka、spring-cloud-config-server、spring-cloud-config-client项目，在启动spring-cloud-config-client项目的时候我们会发现启动日志会输出这样的一条记录。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>2017-05-26 17:05:38.568  INFO 21924 --- [           main] o.s.b.a.e.mvc.EndpointHandlerMapping     : Mapped "{[/bus/refresh],methods=[POST]}" onto public void org.springframework.cloud.bus.endpoint.RefreshBusEndpoint.refresh(java.lang.String)
+</code></pre></div></div>
+
+<p>说明客户端已经具备了消息总线通知的能力了，为了更好的模拟消息总线的效果，我们更改客户端spring-cloud-config-client项目的端口为8003、8004依次启动，这样测试环境就准备好了。启动后eureka后台效果图如下：</p>
+
+<p><img src="http://www.itmind.net/assets/images/2017/springcloud/configbus3.jpg" alt="" /></p>
+
+<p>我们先分别测试一下服务端和客户端是否正确运行，访问：<code class="highlighter-rouge">http://localhost:8001/neo-config/dev</code>，返回信息：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
+    "name": "neo-config", 
+    "profiles": [
+        "dev"
+    ], 
+    "label": null, 
+    "version": null, 
+    "state": null, 
+    "propertySources": [
+        {
+            "name": "https://github.com/ityouknow/spring-cloud-starter/config-repo/neo-config-dev.properties", 
+            "source": {
+                "neo.hello": "hello im dev"
+            }
+        }
+    ]
+}
+</code></pre></div></div>
+
+<p>说明server端都正常读取到了配置信息。</p>
+
+<p>依次访问：<code class="highlighter-rouge">http://localhost:8002/hello</code>、<code class="highlighter-rouge">http://localhost:8003/hello</code>、<code class="highlighter-rouge">http://localhost:8004/hello</code>，返回：<code class="highlighter-rouge">hello im dev</code>。说明客户端都已经读取到了server端的内容。</p>
+
+<p>现在我们更新<code class="highlighter-rouge">neo-config-dev.properties</code> 中<code class="highlighter-rouge">neo.hello</code>的值为<code class="highlighter-rouge">hello im dev update</code>并提交到代码库中，访问：<code class="highlighter-rouge">http://localhost:8002/hello</code> 依然返回<code class="highlighter-rouge">hello im dev</code>。我们对端口为8002的客户端发送一个<code class="highlighter-rouge">/bus/refresh</code>的post请求。在win下使用下面命令来模拟webhook.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl -X POST http://localhost:8002/bus/refresh
+</code></pre></div></div>
+
+<p>执行完成后，依次访问：<code class="highlighter-rouge">http://localhost:8002/hello</code>、<code class="highlighter-rouge">http://localhost:8003/hello</code>、<code class="highlighter-rouge">http://localhost:8004/hello</code>，返回：<code class="highlighter-rouge">hello im dev update</code>。说明三个客户端均已经拿到了最新配置文件的信息，这样我们就实现了图一中的示例。</p>
+
+<h2 id="改进版本">改进版本</h2>
+
+<p>在上面的流程中，我们已经到达了利用消息总线触发一个客户端<code class="highlighter-rouge">bus/refresh</code>,而刷新所有客户端的配置的目的。但这种方式并不优雅。原因如下：</p>
+
+<ul>
+  <li>打破了微服务的职责单一性。微服务本身是业务模块，它本不应该承担配置刷新的职责。</li>
+  <li>破坏了微服务各节点的对等性。</li>
+  <li>有一定的局限性。例如，微服务在迁移时，它的网络地址常常会发生变化，此时如果想要做到自动刷新，那就不得不修改WebHook的配置。</li>
+</ul>
+
+<p>因此我们将上面的架构模式稍微改变一下</p>
+
+<p><img src="http://www.itmind.net/assets/images/2017/springcloud/configbus2.jpg" alt="" /></p>
+
+<p>这时Spring Cloud Bus做配置更新步骤如下:</p>
+
+<ul>
+  <li>1、提交代码触发post请求给bus/refresh</li>
+  <li>2、server端接收到请求并发送给Spring Cloud Bus</li>
+  <li>3、Spring Cloud bus接到消息并通知给其它客户端</li>
+  <li>4、其它客户端接收到通知，请求Server端获取最新配置</li>
+  <li>5、全部客户端均获取到最新的配置</li>
+</ul>
+
+<p>这样的话我们在server端的代码做一些改动，来支持<code class="highlighter-rouge">bus/refresh</code></p>
+
+<h3 id="1添加依赖-1">1、添加依赖</h3>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependencies&gt;</span>
+	<span class="nt">&lt;dependency&gt;</span>
+		<span class="nt">&lt;groupId&gt;</span>org.springframework.cloud<span class="nt">&lt;/groupId&gt;</span>
+		<span class="nt">&lt;artifactId&gt;</span>spring-cloud-config-server<span class="nt">&lt;/artifactId&gt;</span>
+	<span class="nt">&lt;/dependency&gt;</span>
+	<span class="nt">&lt;dependency&gt;</span>
+		<span class="nt">&lt;groupId&gt;</span>org.springframework.cloud<span class="nt">&lt;/groupId&gt;</span>
+		<span class="nt">&lt;artifactId&gt;</span>spring-cloud-starter-bus-amqp<span class="nt">&lt;/artifactId&gt;</span>
+	<span class="nt">&lt;/dependency&gt;</span>
+	<span class="nt">&lt;dependency&gt;</span>
+		<span class="nt">&lt;groupId&gt;</span>org.springframework.cloud<span class="nt">&lt;/groupId&gt;</span>
+		<span class="nt">&lt;artifactId&gt;</span>spring-cloud-starter-eureka<span class="nt">&lt;/artifactId&gt;</span>
+	<span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;/dependencies&gt;</span>
+</code></pre></div></div>
+
+<p>需要多引入<code class="highlighter-rouge">spring-cloud-starter-bus-amqp</code>包，增加对消息总线的支持</p>
+
+<h3 id="2配置文件-1">2、配置文件</h3>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">server</span><span class="p">:</span>
+  <span class="py">port</span><span class="p">:</span> <span class="s">8001</span>
+<span class="py">spring</span><span class="p">:</span>
+  <span class="py">application</span><span class="p">:</span>
+    <span class="py">name</span><span class="p">:</span> <span class="s">spring-cloud-config-server</span>
+  <span class="py">cloud</span><span class="p">:</span>
+    <span class="py">config</span><span class="p">:</span>
+      <span class="py">server</span><span class="p">:</span>
+        <span class="py">git</span><span class="p">:</span>
+          <span class="py">uri</span><span class="p">:</span> <span class="s">https://github.com/ityouknow/spring-cloud-starter/     # 配置git仓库的地址</span>
+          <span class="py">search-paths</span><span class="p">:</span> <span class="s">config-repo                             # git仓库地址下的相对地址，可以配置多个，用,分割。</span>
+          <span class="py">username</span><span class="p">:</span> <span class="s">username                                        # git仓库的账号</span>
+          <span class="py">password</span><span class="p">:</span> <span class="s">password                                    # git仓库的密码</span>
+  <span class="py">rabbitmq</span><span class="p">:</span>
+    <span class="py">host</span><span class="p">:</span> <span class="s">192.168.0.6</span>
+    <span class="py">port</span><span class="p">:</span> <span class="s">5672</span>
+    <span class="py">username</span><span class="p">:</span> <span class="s">admin</span>
+    <span class="py">password</span><span class="p">:</span> <span class="s">123456</span>
+
+<span class="py">eureka</span><span class="p">:</span>
+  <span class="py">client</span><span class="p">:</span>
+    <span class="py">serviceUrl</span><span class="p">:</span>
+      <span class="py">defaultZone</span><span class="p">:</span> <span class="s">http://localhost:8000/eureka/   ## 注册中心eurka地址</span>
+
+
+<span class="py">management</span><span class="p">:</span>
+  <span class="py">security</span><span class="p">:</span>
+     <span class="py">enabled</span><span class="p">:</span> <span class="s">false</span>
+</code></pre></div></div>
+
+<p>配置文件增加RebbitMq的相关配置，关闭安全验证。这样server端代码就改造完成了。</p>
+
+<h3 id="3测试-1">3、测试</h3>
+
+<p>依次启动spring-cloud-eureka、spring-cloud-config-server、spring-cloud-config-client项目，改动spring-cloud-config-client项目端口为8003、8004依次启动。测试环境准备完成。</p>
+
+<p>按照上面的测试方式，访问server端和三个客户端测试均可以正确返回信息。同样修改<code class="highlighter-rouge">neo-config-dev.properties</code> 中<code class="highlighter-rouge">neo.hello</code>的值为<code class="highlighter-rouge">hello im dev update</code>并提交到代码库中。在win下使用下面命令来模拟webhook触发server端<code class="highlighter-rouge">bus/refresh</code>.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl -X POST http://localhost:8001/bus/refresh
+</code></pre></div></div>
+
+<p>执行完成后，依次访问：<code class="highlighter-rouge">http://localhost:8002/hello</code>、<code class="highlighter-rouge">http://localhost:8003/hello</code>、<code class="highlighter-rouge">http://localhost:8004/hello</code>，返回：<code class="highlighter-rouge">hello im dev update</code>。说明三个客户端均已经拿到了最新配置文件的信息，这样我们就实现了上图中的示例。</p>
+
+<h2 id="其它">其它</h2>
+
+<h3 id="局部刷新">局部刷新</h3>
+
+<p>某些场景下（例如灰度发布），我们可能只想刷新部分微服务的配置，此时可通过<code class="highlighter-rouge">/bus/refresh</code>端点的destination参数来定位要刷新的应用程序。</p>
+
+<p>例如：<code class="highlighter-rouge">/bus/refresh?destination=customers:8000</code>，这样消息总线上的微服务实例就会根据destination参数的值来判断是否需要要刷新。其中，<code class="highlighter-rouge">customers:8000</code>指的是各个微服务的ApplicationContext ID。</p>
+
+<p>destination参数也可以用来定位特定的微服务。例如：<code class="highlighter-rouge">/bus/refresh?destination=customers:**</code>，这样就可以触发customers微服务所有实例的配置刷新。</p>
+
+<h3 id="跟踪总线事件">跟踪总线事件</h3>
+
+<p>一些场景下，我们可能希望知道Spring Cloud Bus事件传播的细节。此时，我们可以跟踪总线事件（RemoteApplicationEvent的子类都是总线事件）。</p>
+
+<p>跟踪总线事件非常简单，只需设置<code class="highlighter-rouge">spring.cloud.bus.trace.enabled=true</code>，这样在<code class="highlighter-rouge">/bus/refresh</code>端点被请求后，访问<code class="highlighter-rouge">/trace</code>端点就可获得类似如下的结果：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
+  "timestamp": 1495851419032,
+  "info": {
+    "signal": "spring.cloud.bus.ack",
+    "type": "RefreshRemoteApplicationEvent",
+    "id": "c4d374b7-58ea-4928-a312-31984def293b",
+    "origin": "stores:8002",
+    "destination": "*:**"
+  }
+  },
+  {
+  "timestamp": 1495851419033,
+  "info": {
+    "signal": "spring.cloud.bus.sent",
+    "type": "RefreshRemoteApplicationEvent",
+    "id": "c4d374b7-58ea-4928-a312-31984def293b",
+    "origin": "spring-cloud-config-client:8001",
+    "destination": "*:**"
+  }
+  },
+  {
+  "timestamp": 1495851422175,
+  "info": {
+    "signal": "spring.cloud.bus.ack",
+    "type": "RefreshRemoteApplicationEvent",
+    "id": "c4d374b7-58ea-4928-a312-31984def293b",
+    "origin": "customers:8001",
+    "destination": "*:**"
+  }
+}
+</code></pre></div></div>
+
+<p>这个日志显示了<code class="highlighter-rouge">customers:8001</code>发出了RefreshRemoteApplicationEvent事件，广播给所有的服务，被<code class="highlighter-rouge">customers:9000</code>和<code class="highlighter-rouge">stores:8081</code>接受到了。想要对接受到的消息自定义自己的处理方式的话，可以添加<code class="highlighter-rouge">@EventListener</code>注解的AckRemoteApplicationEvent和SentApplicationEvent类型到你自己的应用中。或者到TraceRepository类中，直接处理数据。</p>
+
+<p>这样，我们就可清晰地知道事件的传播细节。</p>
+
+<h2 id="busrefresh-bug"><code class="highlighter-rouge">/bus/refresh</code> BUG</h2>
+
+<p><code class="highlighter-rouge">/bus/refresh</code> 有一个很严重的BUG，一直没有解决：对客户端执行<code class="highlighter-rouge">/bus/refresh</code>之后，挂到总线的上的客户端都会从Eureka注册中心撤销登记；如果对server端执行<code class="highlighter-rouge">/bus/refresh</code>,server端也会从Eureka注册中心撤销登记。再用白话解释一下，就是本来人家在Eureka注册中心注册的好好的，只要你对着它执行一次<code class="highlighter-rouge">/bus/refresh</code>，立刻就会从Euraka中挂掉。</p>
+
+<p>其实这个问题挺严重的，本来你利用<code class="highlighter-rouge">/bus/refresh</code>给所有的节点来更新配置信息呢，结果把服务从Euraka中给搞掉了，那么如果别人需要调用客户端的服务的时候就直接歇菜了。不知道国内有童鞋公司在生产中用到这个功能没有，用了不就很惨烈。在网上搜索了一下，国内网友和国外网友都遇到过很多次，但是一直没有解决，很幸运就是我在写这篇文章的<strong>前三天</strong>，Netflix修复了这个问题，使用Spring Cloud最新版本的包就可以解决这个问题。由此也可以发现Spring Cloud还在快速的发展中，最新的版本可能也会有一些不稳定性，可见路漫漫而修远兮。</p>
+
+<p>在pom中使用Spring Cloud的版本，解决这个bug.</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;properties&gt;</span>
+	<span class="nt">&lt;project.build.sourceEncoding&gt;</span>UTF-8<span class="nt">&lt;/project.build.sourceEncoding&gt;</span>
+	<span class="nt">&lt;project.reporting.outputEncoding&gt;</span>UTF-8<span class="nt">&lt;/project.reporting.outputEncoding&gt;</span>
+	<span class="nt">&lt;java.version&gt;</span>1.8<span class="nt">&lt;/java.version&gt;</span>
+	<span class="nt">&lt;spring-cloud.version&gt;</span>Dalston.SR1<span class="nt">&lt;/spring-cloud.version&gt;</span>
+<span class="nt">&lt;/properties&gt;</span>
+</code></pre></div></div>
+
+<p>主要是这句：<code class="highlighter-rouge">&lt;spring-cloud.version&gt;Dalston.SR1&lt;/spring-cloud.version&gt;</code> ，详情可以参考本文示例中的代码</p>
+
+<p>BUG的讨论和解决过程可以看github上面这两个issue:</p>
+
+<ul>
+  <li><a href="https://github.com/spring-cloud/spring-cloud-config/issues/692">/bus/refresh causes instances registered in Eureka Server disappeared #692</a></li>
+  <li><a href="https://github.com/spring-cloud/spring-cloud-netflix/issues/1857">Making POST on ‘refresh’ permamently deregisters the service from Eureka #1857</a></li>
+</ul>
+
+<p>参考：</p>
+
+<p><a href="http://www.itmuch.com/spring-cloud/spring-cloud-bus-auto-refresh-configuration/">Config Server——使用Spring Cloud Bus自动刷新配置</a></p>
+
+<p><a href="http://blog.didispace.com/springcloud7/">Spring Cloud构建微服务架构（七）消息总线</a></p>
+
+<p><strong><a href="https://github.com/ityouknow/spring-cloud-examples">示例代码-github</a></strong></p>
+
+<p><strong><a href="https://gitee.com/ityouknow/spring-cloud-examples">示例代码-码云</a></strong></p>
+
+<hr />
+<p><strong>作者：纯洁的微笑</strong><br />
+<strong>出处：<a href="http://www.ityouknow.com/springcloud/2017/05/26/springcloud-config-eureka-bus.html">http://www.ityouknow.com/</a></strong>    <br />
+<strong>版权归作者所有，转载请注明出处</strong></p>
+:ET

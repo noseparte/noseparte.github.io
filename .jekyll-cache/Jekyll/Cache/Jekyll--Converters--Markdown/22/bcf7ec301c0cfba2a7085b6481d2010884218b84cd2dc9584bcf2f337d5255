@@ -1,0 +1,3 @@
+I"�<p>HBase shell是HBase的一套命令行工具，类似传统数据中的sql概念，可以使用shell命令来查询HBase中数据的详细情况。安装完HBase之后，如果配置了HBase的环境变量，只要在shell中执行<code class="highlighter-rouge">hbase shell</code>就可以进入命令行界面，HBase的搭建可以参考我的上一篇文章：<a href="http://www.ityouknow.com/hbase/2017/07/25/hbase-cluster-setup.html">hbase分布式集群搭建
+</a></p>
+:ET

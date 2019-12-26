@@ -1,0 +1,60 @@
+I"�<p>Redis是目前业界使用最广泛的内存数据存储。相比memcached，Redis支持更丰富的数据结构，例如hashes, lists, sets等，同时支持数据持久化。除此之外，Redis还提供一些类数据库的特性，比如事务，HA，主从库。可以说Redis兼具了缓存系统和数据库的一些特性，因此有着丰富的应用场景。本文介绍Redis在Spring Boot中两个典型的应用场景。</p>
+
+<h2 id="运营命令">运营命令</h2>
+
+<p>1、启动redis</p>
+<blockquote>
+  <p>src/redis-server &amp;</p>
+</blockquote>
+
+<p>2、关闭redis</p>
+<blockquote>
+  <p>src/redis-cli shutdown</p>
+</blockquote>
+
+<p>3、连接</p>
+<blockquote>
+  <p>telnet localhost 6379</p>
+</blockquote>
+
+<h2 id="诊断命令">诊断命令</h2>
+
+<p>1、查看基本信息</p>
+<blockquote>
+  <p>INFO</p>
+</blockquote>
+
+<p>2、查看缓存键</p>
+<blockquote>
+  <p>keys ‘*’</p>
+</blockquote>
+
+<p>3、查看key的类型</p>
+<blockquote>
+  <p>type yourkey</p>
+</blockquote>
+
+<h2 id="操作命令">操作命令</h2>
+<p>1、插入命令</p>
+<blockquote>
+  <p>set key yy</p>
+</blockquote>
+
+<p>2、获取命令</p>
+<blockquote>
+  <p>get key</p>
+</blockquote>
+
+<p>2、清空所有数据</p>
+<blockquote>
+  <p>FLUSHALL</p>
+</blockquote>
+
+<h2 id="配置命令">配置命令</h2>
+
+<p>1、添加日志</p>
+<blockquote>
+  <p>vim redis.conf
+logfile /data/redis_cache/logs/redis.log #日志路径</p>
+</blockquote>
+:ET

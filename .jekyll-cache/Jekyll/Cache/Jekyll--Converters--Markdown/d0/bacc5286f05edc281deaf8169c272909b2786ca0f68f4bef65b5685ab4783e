@@ -1,0 +1,389 @@
+I"�Q<p>终于要开始玩大数据了，之前对haoop生态几乎没有太多的了解，现在赶鸭子上架，需要完全使用它来做数据中心，这是我的haoop第一篇文章，以后估计会写很多大数据相关的文章。另外有大数据实践经验的网友请联系我，有问题请教谢谢！</p>
+
+<p>Hadoop的搭建有三种方式，单机版适合开发调试；伪分布式版，适合模拟集群学习；完全分布式，生产使用的模式。这篇文件介绍如何搭建完全分布式的hadoop集群，一个主节点，三个数据节点为例来讲解。</p>
+
+<h2 id="基础环境">基础环境</h2>
+
+<h3 id="环境准备">环境准备</h3>
+
+<p>1、软件版本</p>
+
+<p>四台服务器配置，系统：centos6.5、内存：1G、硬盘：20G<br />
+四台服务器分配的IP地址：192.168.0.71/72/73/74<br />
+规划：71用作主节点用作hadoop-master，其它三台为数据节点72、73、74用作hadoop-salve1~3  <br />
+jdk和生成保持一致使用1.7版本  <br />
+hadoop使用2.7.3版本，下载地址：http://apache.claz.org/hadoop/common/hadoop-2.7.3/hadoop-2.7.3.tar.gz</p>
+
+<p>2、host配置和主机名（四台）</p>
+
+<p>修改四台服务器的hosts文件</p>
+
+<p><code class="highlighter-rouge">vim /etc/hosts</code></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>192.168.0.71 hadoop-master 
+192.168.0.72 hadoop-slave1 
+192.168.0.73 hadoop-slave2
+192.168.0.74 hadoop-slave3
+</code></pre></div></div>
+
+<p>分别修改服务器的主机名:HOSTNAME，master为例说明</p>
+
+<p><code class="highlighter-rouge">vi /etc/sysconfig/network</code></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">HOSTNAME</span><span class="o">=</span>hadoop-master
+</code></pre></div></div>
+
+<p>执行<code class="highlighter-rouge">reboot</code>后生效，完成之后依次修改其它salve服务器为： hadoop-slave1~3。</p>
+
+<p>3、服务器安装jdk（四台）</p>
+
+<p>建议使用yum安装jdk,也可以自行下载安装</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>yum <span class="nt">-y</span> <span class="nb">install </span>java-1.7.0-openjdk<span class="k">*</span>
+</code></pre></div></div>
+
+<p>配置环境变量，修改配置文件<code class="highlighter-rouge">vim /etc/profile</code></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">JAVA_HOME</span><span class="o">=</span>/usr/lib/jvm/jre-1.7.0-openjdk.x86_64
+<span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="nv">$JAVA_HOME</span>/bin:<span class="nv">$PATH</span>
+<span class="nb">export </span><span class="nv">CLASSPATH</span><span class="o">=</span>.:<span class="nv">$JAVA_HOME</span>/lib/dt.jar:<span class="nv">$JAVA_HOME</span>/lib/tools.jar
+</code></pre></div></div>
+
+<p>使用souce命令让立刻生效</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">source</span> /etc/profile
+</code></pre></div></div>
+
+<h3 id="免密登陆">免密登陆</h3>
+
+<p>一、首先关闭四台服务器的防火墙和SELINUX</p>
+
+<p>查看防火墙状态</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>service iptables status
+</code></pre></div></div>
+
+<p>关闭防火墙</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>service iptables stop 
+chkconfig iptables off
+</code></pre></div></div>
+
+<p>关闭SELINUX后，需要重启服务器</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">--</span> 关闭SELINUX
+<span class="c"># vim /etc/selinux/config</span>
+<span class="nt">--</span> 注释掉
+<span class="c">#SELINUX=enforcing</span>
+<span class="c">#SELINUXTYPE=targeted</span>
+<span class="nt">--</span> 添加
+<span class="nv">SELINUX</span><span class="o">=</span>disabled
+</code></pre></div></div>
+
+<p>二、免密码登录本机</p>
+
+<p>下面以配置hadoop-master本机无密码登录为例进行讲解，用户需参照下面步骤完成h-salve1~3三台子节点机器的本机无密码登录；</p>
+
+<p>1）生产秘钥</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh-keygen <span class="nt">-t</span> rsa
+</code></pre></div></div>
+
+<p>2）将公钥追加到”authorized_keys”文件</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> ~/.ssh/id_rsa.pub <span class="o">&gt;&gt;</span> ~/.ssh/authorized_keys
+</code></pre></div></div>
+
+<p>3）赋予权限</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">chmod </span>600 .ssh/authorized_keys
+</code></pre></div></div>
+
+<p>4）验证本机能无密码访问</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh hadoop-master
+</code></pre></div></div>
+
+<p><em>最后，依次配置h-salve1~3无密码访问</em></p>
+
+<p>二、hadoop-master本机无密码登录hadoop-slave1、hadoop-slave2、hadoop-slave3，以hadoop-master无密码登录hadoop-slave1为例进行讲解：</p>
+
+<p>1）登录hadoop-slave1 ，复制hadoop-master服务器的公钥”id_rsa.pub”到hadoop-slave1服务器的”root”目录下。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scp root@hadoop-master:/root/.ssh/id_rsa.pub /root/
+</code></pre></div></div>
+
+<p>2）将hadoop-master的公钥（id_rsa.pub）追加到hadoop-slave1的authorized_keys中</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat </span>id_rsa.pub <span class="o">&gt;&gt;</span> .ssh/authorized_keys
+<span class="nb">rm</span> <span class="nt">-rf</span>  id_rsa.pub
+</code></pre></div></div>
+
+<p>3）在 hadoop-master上面测试</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh  hadoop-slave1
+</code></pre></div></div>
+
+<p>三、配置hadoop-slave1~hadoop-slave3本机无密码登录hadoop-master</p>
+
+<p>下面以hadoop-slave1无密码登录hadoop-master为例进行讲解，用户需参照下面步骤完成hadoop-slave2~hadoop-slave3无密码登录hadoop-master。</p>
+
+<p>1）登录hadoop-master，复制hadoop-slave1服务器的公钥”id_rsa.pub”到hadoop-master服务器的”/root/”目录下。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scp root@hadoop-slave1:/root/.ssh/id_rsa.pub /root/
+</code></pre></div></div>
+
+<p>2）将hadoop-slave1的公钥（id_rsa.pub）追加到hadoop-master的authorized_keys中。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat </span>id_rsa.pub <span class="o">&gt;&gt;</span> .ssh/authorized_keys
+<span class="nb">rm</span> <span class="nt">-rf</span>  id_rsa.pub //删除id_rsa.pub
+</code></pre></div></div>
+
+<p>3）在 hadoop-slave1上面测试</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh  hadoop-master
+</code></pre></div></div>
+
+<p><em>依次配置 hadoop-slave2、hadoop-slave3</em></p>
+
+<p>到此主从的无密登录已经完成了。</p>
+
+<h2 id="hadoop环境搭建">Hadoop环境搭建</h2>
+
+<h3 id="配置hadoop-master的hadoop环境">配置hadoop-master的hadoop环境</h3>
+
+<p>1、hadoop-master上 解压缩安装包及创建基本目录</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#下载  </span>
+wget http://apache.claz.org/hadoop/common/hadoop-2.7.3/hadoop-2.7.3.tar.gz
+<span class="c">#解压  </span>
+<span class="nb">tar</span> <span class="nt">-xzvf</span>  hadoop-2.7.3.tar.gz    <span class="nt">-C</span> /usr/local 
+<span class="c">#重命名   </span>
+<span class="nb">mv  </span>hadoop-2.7.3  hadoop
+</code></pre></div></div>
+
+<p>2、 配置hadoop-master的hadoop环境变量</p>
+
+<p>1）配置环境变量，修改配置文件<code class="highlighter-rouge">vi /etc/profile</code></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">HADOOP_HOME</span><span class="o">=</span>/usr/local/hadoop
+<span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="nv">$PATH</span>:<span class="nv">$HADOOP_HOME</span>/bin 
+</code></pre></div></div>
+
+<p>使得hadoop命令在当前终端立即生效</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">source</span> /etc/profile
+</code></pre></div></div>
+
+<p><em>下面配置，文件都在：<code class="highlighter-rouge">/usr/local/hadoop/etc/hadoop</code>路径下</em></p>
+
+<p>2、配置core-site.xml</p>
+
+<p>修改Hadoop核心配置文件<code class="highlighter-rouge">/usr/local/hadoop/etc/hadoop/core-site.xml</code>，通过<code class="highlighter-rouge">fs.default.name</code>指定NameNode的IP地址和端口号，通过<code class="highlighter-rouge">hadoop.tmp.dir</code>指定hadoop数据存储的临时文件夹。</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;configuration&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>hadoop.tmp.dir<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>file:/usr/local/hadoop/tmp<span class="nt">&lt;/value&gt;</span>
+        <span class="nt">&lt;description&gt;</span>Abase for other temporary directories.<span class="nt">&lt;/description&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>fs.defaultFS<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>hdfs://hadoop-master:9000<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</code></pre></div></div>
+
+<p><strong>特别注意：如没有配置<code class="highlighter-rouge">hadoop.tmp.dir</code>参数，此时系统默认的临时目录为：<code class="highlighter-rouge">/tmp/hadoo-hadoop</code>。而这个目录在每次重启后都会被删除，必须重新执行format才行，否则会出错。</strong></p>
+
+<p>3、配置hdfs-site.xml：</p>
+
+<p>修改HDFS核心配置文件<code class="highlighter-rouge">/usr/local/hadoop/etc/hadoop/hdfs-site.xml</code>，通过<code class="highlighter-rouge">dfs.replication</code>指定HDFS的备份因子为3，通过<code class="highlighter-rouge">dfs.name.dir</code>指定namenode节点的文件存储目录，通过<code class="highlighter-rouge">dfs.data.dir</code>指定datanode节点的文件存储目录。</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;configuration&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>dfs.replication<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>3<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>dfs.name.dir<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>/usr/local/hadoop/hdfs/name<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>dfs.data.dir<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>/usr/local/hadoop/hdfs/data<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</code></pre></div></div>
+
+<p>4、配置mapred-site.xml</p>
+
+<p>拷贝mapred-site.xml.template为mapred-site.xml，在进行修改</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cp</span> /usr/local/hadoop/etc/hadoop/mapred-site.xml.template /usr/local/hadoop/etc/hadoop/mapred-site.xml  
+vim /usr/local/hadoop/etc/hadoop/mapred-site.xml
+</code></pre></div></div>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;configuration&gt;</span>
+  <span class="nt">&lt;property&gt;</span>
+      <span class="nt">&lt;name&gt;</span>mapreduce.framework.name<span class="nt">&lt;/name&gt;</span>
+      <span class="nt">&lt;value&gt;</span>yarn<span class="nt">&lt;/value&gt;</span>
+  <span class="nt">&lt;/property&gt;</span>
+   <span class="nt">&lt;property&gt;</span>
+      <span class="nt">&lt;name&gt;</span>mapred.job.tracker<span class="nt">&lt;/name&gt;</span>
+      <span class="nt">&lt;value&gt;</span>http://hadoop-master:9001<span class="nt">&lt;/value&gt;</span>
+  <span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</code></pre></div></div>
+
+<p>5、配置yarn-site.xml</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;configuration&gt;</span>
+<span class="c">&lt;!-- Site specific YARN configuration properties --&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>yarn.nodemanager.aux-services<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>mapreduce_shuffle<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>yarn.resourcemanager.hostname<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>hadoop-master<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</code></pre></div></div>
+
+<p>6、配置masters文件</p>
+
+<p>修改<code class="highlighter-rouge">/usr/local/hadoop/etc/hadoop/masters</code>文件，该文件指定namenode节点所在的服务器机器。删除localhost，添加namenode节点的主机名hadoop-master；不建议使用IP地址，因为IP地址可能会变化，但是主机名一般不会变化。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /usr/local/hadoop/etc/hadoop/masters
+<span class="c">## 内容</span>
+hadoop-master
+</code></pre></div></div>
+
+<p>7、配置slaves文件（Master主机特有）</p>
+
+<p>修改<code class="highlighter-rouge">/usr/local/hadoop/etc/hadoop/slaves</code>文件，该文件指定哪些服务器节点是datanode节点。删除locahost，添加所有datanode节点的主机名，如下所示。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /usr/local/hadoop/etc/hadoop/slaves
+<span class="c">## 内容</span>
+hadoop-slave1
+hadoop-slave2
+hadoop-slave3
+</code></pre></div></div>
+
+<h3 id="配置hadoop-slave的hadoop环境">配置hadoop-slave的hadoop环境</h3>
+
+<p>下面以配置hadoop-slave1的hadoop为例进行演示，用户需参照以下步骤完成其他hadoop-slave2~3服务器的配置。</p>
+
+<p>1）复制hadoop到hadoop-slave1节点</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scp <span class="nt">-r</span> /usr/local/hadoop hadoop-slave1:/usr/local/
+</code></pre></div></div>
+
+<p>登录hadoop-slave1服务器，删除slaves内容</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">rm</span> <span class="nt">-rf</span> /usr/local/hadoop/etc/hadoop/slaves
+</code></pre></div></div>
+
+<p>2）配置环境变量</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /etc/profile
+<span class="c">## 内容</span>
+<span class="nb">export </span><span class="nv">HADOOP_HOME</span><span class="o">=</span>/usr/local/hadoop
+<span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="nv">$PATH</span>:<span class="nv">$HADOOP_HOME</span>/bin
+</code></pre></div></div>
+
+<p>使得hadoop命令在当前终端立即生效；</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">source</span> /etc/profile
+</code></pre></div></div>
+
+<p>依次配置其它slave服务</p>
+
+<h3 id="启动集群">启动集群</h3>
+
+<p>1、格式化HDFS文件系统</p>
+
+<p>进入master的~/hadoop目录，执行以下操作</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bin/hadoop namenode <span class="nt">-format</span>
+</code></pre></div></div>
+<p><strong>格式化namenode，第一次启动服务前执行的操作，以后不需要执行。</strong></p>
+
+<p>2、然后启动hadoop：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sbin/start-all.sh
+</code></pre></div></div>
+
+<p>3、使用jps命令查看运行情况</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#master 执行 jps查看运行情况</span>
+25928 SecondaryNameNode
+25742 NameNode
+26387 Jps
+26078 ResourceManager
+</code></pre></div></div>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#slave 执行 jps查看运行情况</span>
+24002 NodeManager
+23899 DataNode
+24179 Jps
+</code></pre></div></div>
+
+<p>4、命令查看Hadoop集群的状态</p>
+
+<p>通过简单的jps命令虽然可以查看HDFS文件管理系统、MapReduce服务是否启动成功，但是无法查看到Hadoop整个集群的运行状态。我们可以通过<code class="highlighter-rouge">hadoop dfsadmin -report</code>进行查看。用该命令可以快速定位出哪些节点挂掉了，HDFS的容量以及使用了多少，以及每个节点的硬盘使用情况。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hadoop dfsadmin <span class="nt">-report</span>
+</code></pre></div></div>
+
+<p>输出结果：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Configured Capacity: 50108030976 <span class="o">(</span>46.67 GB<span class="o">)</span>
+Present Capacity: 41877471232 <span class="o">(</span>39.00 GB<span class="o">)</span>
+DFS Remaining: 41877385216 <span class="o">(</span>39.00 GB<span class="o">)</span>
+DFS Used: 86016 <span class="o">(</span>84 KB<span class="o">)</span>
+DFS Used%: 0.00%
+Under replicated blocks: 0
+Blocks with corrupt replicas: 0
+Missing blocks: 0
+Missing blocks <span class="o">(</span>with replication <span class="nb">factor </span>1<span class="o">)</span>: 0
+......
+</code></pre></div></div>
+
+<p>5、hadoop 重启</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sbin/stop-all.sh
+sbin/start-all.sh
+</code></pre></div></div>
+
+<h2 id="错误">错误</h2>
+
+<p>在搭建完成启动的时候，发生过两个错误：</p>
+
+<p>1、 xxx: Error: JAVA_HOME is not set and could not be found</p>
+
+<p>这个错误意思没有找到jdk的环境变量，需要在hadoop-env.sh配置。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vi /usr/local/hadoop/etc/hadoop/hadoop-env.sh 
+<span class="c">## 配置项</span>
+<span class="nb">export </span><span class="nv">JAVA_HOME</span><span class="o">=</span>/usr/lib/jvm/jre-1.7.0-openjdk.x86_64
+</code></pre></div></div>
+
+<p>2、The authenticity of host ‘0.0.0.0 (0.0.0.0)’ can’t be established.</p>
+
+<p>解决方案关闭SELINUX</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">--</span> 关闭SELINUX
+<span class="c"># vim /etc/selinux/config</span>
+<span class="nt">--</span> 注释掉
+<span class="c">#SELINUX=enforcing</span>
+<span class="c">#SELINUXTYPE=targeted</span>
+— 添加
+<span class="nv">SELINUX</span><span class="o">=</span>disabled
+</code></pre></div></div>
+
+<p>参考：
+<a href="http://www.linuxidc.com/Linux/2015-03/114669p4.htm">Hadoop之完全分布式环境搭建</a></p>
+
+:ET

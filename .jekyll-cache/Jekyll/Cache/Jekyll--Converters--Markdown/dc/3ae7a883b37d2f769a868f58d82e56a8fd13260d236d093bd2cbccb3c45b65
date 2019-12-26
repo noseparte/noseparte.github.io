@@ -1,0 +1,160 @@
+I"�<p>Sublime 刚刚使用有一段时间了，感觉可以用惊艳来形容这款工具。对于使用了6年的eclipse的我，sublime的启动、反应速度就是火箭，当然eclipse也是一款优秀的编程工具，可以调优，但从最根本角度来讲：不在同一个视角。因为刚刚使用也不是很熟悉，因此在这里总结一些基础的用法和快捷键。</p>
+
+<h2 id="sublime-text介绍">Sublime Text介绍</h2>
+<p>一款具有代码高亮、语法提示、自动完成且反应快速的编辑器软件，不仅具有华丽的界面，还支持插件扩展机制，用她来写代码，绝对是一种享受。相比于难于上手的Vim，浮肿沉重的Eclipse，VS，即便体积轻巧迅速启动的Editplus、Notepad++，在SublimeText面前大略显失色，无疑这款性感无比的编辑器是Coding和Writing最佳的选择，没有之一。</p>
+
+<p>我使用sublime主要有 2 个作用:</p>
+
+<ul>
+  <li>编程</li>
+  <li>写作</li>
+</ul>
+
+<h2 id="快捷键">快捷键</h2>
+
+<h3 id="新建文件">新建文件</h3>
+<blockquote>
+  <ol>
+    <li>Ctrl+N：新建窗口</li>
+    <li>输入文件名</li>
+    <li>Ctrl+S：保存</li>
+  </ol>
+</blockquote>
+
+<h3 id="列编辑">列编辑</h3>
+<blockquote>
+  <ol>
+    <li>Ctrl+A 全选</li>
+    <li>Ctrl+Shift+L 进入列选模式</li>
+    <li>使用方向键左右移动所有列的光标，并配合使用Shift键来多选每行的字符</li>
+  </ol>
+</blockquote>
+
+<h3 id="快速查找">快速查找</h3>
+<blockquote>
+  <ol>
+    <li>Goto Anything功能 — 快速查找（ctrl + P）</li>
+    <li>输入@+函数名可以快速找到函数。</li>
+    <li>输入#+文本可以快速进行文件内文本匹配。</li>
+  </ol>
+</blockquote>
+
+<h3 id="快速跳转到某一行">快速跳转到某一行</h3>
+<blockquote>
+  <p>按下Ctrl + G，输入行号，可以快速跳转到该行。</p>
+</blockquote>
+
+<h3 id="注释">注释</h3>
+<blockquote>
+  <ol>
+    <li>Ctrl+/ 注释单行。</li>
+    <li>Ctrl+Shift+/ 注释多行。</li>
+  </ol>
+</blockquote>
+
+<h3 id="删除">删除</h3>
+<blockquote>
+  <ol>
+    <li>Ctrl+KK          从光标处删除至行尾</li>
+    <li>Ctrl+Shift+K     删除整行</li>
+  </ol>
+</blockquote>
+
+<h3 id="替换">替换</h3>
+<blockquote>
+  <p>Ctrl+Shift+F：查找并替换
+Ctrl+H：替换</p>
+</blockquote>
+
+<h2 id="插件介绍">插件介绍</h2>
+
+<h3 id="html-css-js-prettify">HTML-CSS-JS Prettify</h3>
+<p>一款集成了格式化（美化）html、css、js三种文件类型的插件，即便html,js写在PHP文件之内。插件依赖于nodejs，因此需要事先安装nodejs，然后才可以正常运行。插件安装完成后，快捷键ctrl+shift+H完成当前文件的美化操作。</p>
+
+<h3 id="sublimetmpl-快速生成文件模板">SublimeTmpl 快速生成文件模板</h3>
+<p>一直都很奇怪为什么sublime text 3没有新建文件模板的功能，像html头部的DTD声明每次都要复制粘贴。用SublimeTmpl这款插件终于可以解脱了，SublimeTmpl能新建html、css、javascript、php、python、ruby六种类型的文件模板，所有的文件模板都在插件目录的templates文件夹里，可以自定义编辑文件模板。</p>
+
+<blockquote>
+  <ul>
+    <li>SublimeTmpl默认的快捷键:</li>
+    <li>ctrl+alt+h html</li>
+    <li>ctrl+alt+j javascript</li>
+    <li>ctrl+alt+c css</li>
+    <li>ctrl+alt+p php</li>
+    <li>ctrl+alt+r ruby</li>
+    <li>ctrl+alt+shift+p python</li>
+  </ul>
+</blockquote>
+
+<p>如果想要新建其他类型的文件模板的话，先自定义文件模板方在templates文件夹里，再分别打开Default (Windows).sublime-keymap、Default.sublime-commands、Main.sublime-menu、SublimeTmpl.sublime-settings这四个文件照着里面的格式自定义想要新建的类型</p>
+
+<h3 id="sublime-git">sublime git</h3>
+<p>git 的各种操作</p>
+
+<h3 id="markdown-extended-and--monokai-extended">Markdown Extended and  Monokai Extended</h3>
+
+<p>markdown 代码高亮插件,两者配合使用效果最佳。</p>
+
+<h3 id="markdown-editing">MarkDown Editing</h3>
+<p>在 Sublime 中编写 Markdown 还有一个直观的不适就是缺少辅助提示，比如输入 *，编辑器应当自动补上一个 *，并使光标保持在两 * 之间，又比如应当支持选中一段文字快捷键添加链接。</p>
+
+<blockquote>
+  <ul>
+    <li>ctrl + win + R - 插入链接；</li>
+    <li>ctrl + win + V - 粘贴为链接格式；</li>
+    <li>Shift + win + K - 插入图片。</li>
+  </ul>
+</blockquote>
+
+<h3 id="omnimarkuppreviewer">OmniMarkupPreviewer</h3>
+<p>作为 Sublime Text 的一款强大插件，支持将标记语言渲染为 HTML 并在浏览器上实时预览，同时支持导出 HTML 源码文件。插件安装成功后我们就可以使用快捷键对编辑的markdown源文件进行预览了。
+下面是几个常用快捷键.</p>
+
+<blockquote>
+  <ul>
+    <li>Command +Option +O: 在浏览器中预览</li>
+    <li>Command+Option+X: 导出HTML</li>
+    <li>Ctrl+Alt+C: HTML标记拷贝至剪贴板</li>
+  </ul>
+</blockquote>
+
+<h3 id="wordcount">WordCount</h3>
+<p>字数统计的一款小插件</p>
+
+<h3 id="imesupport">IMESupport</h3>
+
+<p>sublime text 有个BUG，那就是不支持中文的鼠标跟随，这个插件就是干这个事情的</p>
+
+<h2 id="如何安装插件">如何安装插件？</h2>
+
+<p>安装插件之前，我们需要首先安装一个Sublime 中最不可缺少的插件 Package Control, 以后我们安装和管理插件都需要这个插件的帮助。</p>
+
+<p>安装”Package Control”
+使用快捷键 “ ctrl + `” 打开Sublime的控制台 ,或者选择 View &gt; Show Console 。</p>
+
+<p>在控制台的命令行输入框，把下面一段代码粘贴进去，回车 就可以完成Pacakge Control 的安装了。</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>import urllib.request,os; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); open(os.path.join(ipp, pf), 'wb').write(urllib.request.urlopen( 'http://sublime.wbond.net/' + pf.replace(' ','%20')).read())
+</code></pre></div></div>
+
+<h3 id="插件的安装">插件的安装</h3>
+<p>Package Control 安装成功后我们就可以使用它方便的管理插件了，首先使用快捷键 ‘command + shift + p ‘ 进入到Sublime 命令面板，输入 “package install” 从列表中选择 “install Package” 然后回车。在弹出的框中输入我们想要安装的插件名称，回车就自动安装了</p>
+
+<h3 id="输入法光标不跟随解决方案">输入法光标不跟随解决方案</h3>
+
+<p>1.手动安装：在GitHub页面下载该项目的ZIP包，解压出来将文件夹名称改为IMESupport，放到Sublime Text的插件目录重启软件即可。插件目录可通过菜单-&gt;preferences-&gt;packages来打开。</p>
+
+<p>2.通过Package Control在线安装：安装Package Control插件（安装方法请自行搜索），通过Install Package选项列出插件列表，搜索IMESupport安装即可。</p>
+
+<p>插件名称：IMESupport
+GitHub页面：https://github.com/chikatoike/IMESupport</p>
+
+<h2 id="mac下的快捷键">mac下的快捷键</h2>
+
+<p>1、替换</p>
+
+<blockquote>
+  <p>Alt+Command+F</p>
+</blockquote>
+
+:ET

@@ -1,0 +1,244 @@
+I"�w<p>这两年python特别火，火到博客园现在也是隔三差五的出现一些python的文章。各种开源软件、各种爬虫算法纷纷开路，作为互联网行业的IT狗自然看的我也是心痒痒，于是趁着这个雾霾横行的周末瞅了两眼，作为一名老司机觉得还是应该以练带学，1024在程序员界这么流行的网站，当然拿来先练一练。</p>
+
+<p>python自称是以自然语言的视角来编程，特点是开发快，语言简洁，没那么多技巧，大名鼎鼎的豆瓣、youtube都是使用python开发的网站，看来python在大规模使用这个方面来讲应该没有啥子问题；python也不是没有缺点在性能方面就Java、C++等老前辈还是没得比的，另外python和nodejs一样只能使用CPU单核，也是性能方面影响是因素之一。但python在特定领域表现突出，特别是脚本、爬虫、科学算法等。</p>
+
+<blockquote>
+  <p>好了,还是说正事如何爬取1024网站的图片</p>
+</blockquote>
+
+<h2 id="分析">分析</h2>
+
+<h3 id="列表页面">列表页面</h3>
+
+<p>首先进入1024的导航网站，随便点击一个地址进入选择图片区或者在网站地址后面添加<code class="highlighter-rouge">thread0806.php?fid=16&amp;search=&amp;page=</code>,这就是1024网站的图片区，这个爬虫就是主要抓取这个区域的所有图片，使用浏览器debug分析一下这个页面发现基本都是列表页,格式如下：</p>
+
+<p><img src="http://www.ityouknow.com/assets/images/2016/1024list.jpg" alt="list" /></p>
+
+<p>在地址栏<code class="highlighter-rouge">http://xxxxxx.biz/thread0806.php?fid=16&amp;search=&amp;page=</code>后面拼1、2、3等于就是访问图片区第一页、第二页、第三页的列表页。根据这些列表页就可以爬出具体的每一个图片页的地址，类似上图的地址：<code class="highlighter-rouge">htm_data/16/1611/2114702.html</code> 在地址的前面拼接上主站地址就是具体的图片页了。所以根据以上的分析：通过循环地址栏找到不同的列表页在根据列表页找到具体的图片页</p>
+
+<blockquote>
+  <p>地址栏-&gt;图片列表-&gt;图片页地址</p>
+</blockquote>
+
+<p>获取列表页图片地址代码如下：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">urllib.request</span><span class="p">,</span><span class="n">socket</span><span class="p">,</span><span class="n">re</span><span class="p">,</span><span class="n">sys</span><span class="p">,</span><span class="n">os</span>
+
+<span class="n">baseUrl</span><span class="o">=</span><span class="s">'http://xxxx.biz/'</span>
+
+<span class="k">def</span> <span class="nf">getContant</span><span class="p">(</span><span class="n">Weburl</span><span class="p">):</span>
+    <span class="n">Webheader</span><span class="o">=</span> <span class="p">{</span><span class="s">'Upgrade-Insecure-Requests'</span><span class="p">:</span><span class="s">'1'</span><span class="p">,</span>
+                <span class="s">'User-Agent'</span><span class="p">:</span><span class="s">'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'</span><span class="p">,}</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span><span class="n">url</span> <span class="o">=</span> <span class="n">Weburl</span><span class="p">,</span><span class="n">headers</span><span class="o">=</span><span class="n">Webheader</span><span class="p">)</span>
+    <span class="n">respose</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+    <span class="n">_contant</span> <span class="o">=</span> <span class="n">respose</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="n">respose</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">_contant</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">getUrl</span><span class="p">(</span><span class="n">URL</span><span class="p">):</span>
+    <span class="n">pageIndex</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">pageIndex</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">Weburl</span> <span class="o">=</span> <span class="n">URL</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">contant</span> <span class="o">=</span> <span class="n">getContant</span><span class="p">(</span><span class="n">Weburl</span><span class="p">)</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="nb">compile</span><span class="p">(</span><span class="s">r'&lt;a href="htm_data.{0,30}html" target="_blank" id=""&gt;&lt;font color=g'</span><span class="p">)</span>
+        <span class="n">urlList1</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">contant</span><span class="p">)</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="nb">compile</span><span class="p">(</span><span class="s">r'a href="(.*?)"'</span><span class="p">)</span>
+        <span class="n">urlList2</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">urlList1</span><span class="p">))</span>
+        <span class="n">urlList</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">url1</span> <span class="ow">in</span> <span class="n">urlList2</span><span class="p">:</span>
+            <span class="n">url2</span> <span class="o">=</span> <span class="n">baseUrl</span><span class="o">+</span><span class="n">url1</span>
+            <span class="n">urlList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">url2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">urlList</span>
+        
+<span class="n">URL</span> <span class="o">=</span> <span class="n">baseUrl</span><span class="o">+</span><span class="s">'thread0806.php?fid=16&amp;search=&amp;page='</span>
+<span class="n">UrlList</span> <span class="o">=</span> <span class="n">getUrl</span><span class="p">(</span><span class="n">URL</span><span class="p">)</span> 
+<span class="k">print</span><span class="p">(</span><span class="n">UrlList</span><span class="p">)</span>
+</code></pre></div></div>
+
+<blockquote>
+  <p>在这个地址后面拼接1到N就是不同的列表页</p>
+</blockquote>
+
+<h3 id="图片页面">图片页面</h3>
+
+<p>利用浏览器debug一下页面，图片基本上都是外链地址，以http或者https开头以jpg、png、gif结尾，写个正则表达式匹配这些地址，然后交给程序下载就OK了。</p>
+
+<p>页面代码如下：</p>
+
+<p><img src="http://www.ityouknow.com/assets/images/2016/1024page.jpg" alt="page" /></p>
+
+<p>在下载过程中遇到了几个问题，就是有的页面会报403禁止访问等，应该是网站加了一些防止爬虫的手段，网上找了下加上header参数来模拟浏览器访问就解决了;</p>
+
+<p>下载单个页面代码如下：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">urllib.request</span><span class="p">,</span><span class="n">socket</span><span class="p">,</span><span class="n">re</span><span class="p">,</span><span class="n">sys</span><span class="p">,</span><span class="n">os</span>
+
+<span class="c1">#定义文件保存路径
+</span><span class="n">targetPath</span> <span class="o">=</span> <span class="s">"D:</span><span class="se">\\</span><span class="s">temp</span><span class="se">\\</span><span class="s">1024</span><span class="se">\\</span><span class="s">1"</span>
+
+<span class="k">def</span> <span class="nf">openUrl</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+	<span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+	              <span class="s">'User-Agent'</span><span class="p">:</span> <span class="s">'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) '</span>                            <span class="s">'Chrome/51.0.2704.63 Safari/537.36'</span>
+	           <span class="p">}</span>
+
+	<span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+	<span class="n">res</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+	<span class="n">data</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+	<span class="n">downImg</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">downImg</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+	<span class="k">for</span> <span class="n">link</span><span class="p">,</span><span class="n">t</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s">r'([http|https]:[^\s]*?(jpg|png|gif))'</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="p">))):</span>
+
+	    <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">'s'</span><span class="p">):</span>
+	    	<span class="n">link</span><span class="o">=</span><span class="s">'http'</span><span class="o">+</span><span class="n">link</span>
+	    <span class="k">else</span><span class="p">:</span>
+	        <span class="n">link</span><span class="o">=</span><span class="s">'htt'</span><span class="o">+</span><span class="n">link</span>
+	    <span class="k">print</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+	    <span class="k">try</span><span class="p">:</span>
+	        <span class="n">opener</span><span class="o">=</span><span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">build_opener</span><span class="p">()</span>
+	        <span class="n">opener</span><span class="o">.</span><span class="n">addheaders</span><span class="o">=</span><span class="p">[(</span><span class="s">'User-Agent'</span><span class="p">,</span><span class="s">'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1941.0 Safari/537.36'</span><span class="p">)]</span>
+	        <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">install_opener</span><span class="p">(</span><span class="n">opener</span><span class="p">)</span>
+	        <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlretrieve</span><span class="p">(</span><span class="n">link</span><span class="p">,</span><span class="n">saveFile</span><span class="p">(</span><span class="n">link</span><span class="p">))</span>
+	    <span class="k">except</span><span class="p">:</span>
+	        <span class="k">print</span><span class="p">(</span><span class="s">'失败'</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">saveFile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="c1">#检测当前路径的有效性
+</span>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">targetPath</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">targetPath</span><span class="p">)</span>
+
+    <span class="c1">#设置每个图片的路径
+</span>    <span class="n">pos</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s">'/'</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">targetPath</span><span class="p">,</span><span class="n">path</span><span class="p">[</span><span class="n">pos</span><span class="o">+</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">return</span> <span class="n">t</span>
+
+<span class="n">url</span> <span class="o">=</span> <span class="s">"http://xxxx.biz/htm_data/16/1611/2115193.html"</span>
+<span class="n">openUrl</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+</code></pre></div></div>
+
+<h2 id="批量爬取">批量爬取</h2>
+
+<p>批量爬取有两个工作要做，第一for循环目标内的所有列表页，第二为了避免重复爬取，需要给每个页面建立唯一的文件夹，下次爬取的时候如果存在直接跳过。最后在理一下所有的爬取步骤：</p>
+
+<blockquote>
+  <p>循环地址栏-&gt;找出图片页列表-&gt;图片页分析找出图片地址-&gt;为图片页建立唯一的文件夹-&gt;开始下载页面图片</p>
+</blockquote>
+
+<p>完整的代码如下：</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">urllib.request</span><span class="p">,</span><span class="n">socket</span><span class="p">,</span><span class="n">re</span><span class="p">,</span><span class="n">sys</span><span class="p">,</span><span class="n">os</span>
+
+<span class="n">baseUrl</span><span class="o">=</span><span class="s">'http://xxxx.biz/'</span>
+<span class="n">targetPath</span> <span class="o">=</span> <span class="s">"D:</span><span class="se">\\</span><span class="s">temp</span><span class="se">\\</span><span class="s">1024</span><span class="se">\\</span><span class="s">"</span>
+
+<span class="k">def</span> <span class="nf">getContant</span><span class="p">(</span><span class="n">Weburl</span><span class="p">):</span>
+    <span class="n">Webheader</span><span class="o">=</span> <span class="p">{</span><span class="s">'Upgrade-Insecure-Requests'</span><span class="p">:</span><span class="s">'1'</span><span class="p">,</span>
+                <span class="s">'User-Agent'</span><span class="p">:</span><span class="s">'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.103 Safari/537.36'</span><span class="p">,}</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span><span class="n">url</span> <span class="o">=</span> <span class="n">Weburl</span><span class="p">,</span><span class="n">headers</span><span class="o">=</span><span class="n">Webheader</span><span class="p">)</span>
+    <span class="n">respose</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+    <span class="n">_contant</span> <span class="o">=</span> <span class="n">respose</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+    <span class="n">respose</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">_contant</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">getUrl</span><span class="p">(</span><span class="n">URL</span><span class="p">):</span>
+    <span class="n">pageIndex</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="nb">int</span><span class="p">(</span><span class="n">pageIndex</span><span class="p">)</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">Weburl</span> <span class="o">=</span> <span class="n">URL</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">contant</span> <span class="o">=</span> <span class="n">getContant</span><span class="p">(</span><span class="n">Weburl</span><span class="p">)</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="nb">compile</span><span class="p">(</span><span class="s">r'&lt;a href="htm_data.{0,30}html" target="_blank" id=""&gt;&lt;font color=g'</span><span class="p">)</span>
+        <span class="n">urlList1</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="n">contant</span><span class="p">)</span>
+        <span class="n">comp</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="nb">compile</span><span class="p">(</span><span class="s">r'a href="(.*?)"'</span><span class="p">)</span>
+        <span class="n">urlList2</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">urlList1</span><span class="p">))</span>
+        <span class="n">urlList</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">url1</span> <span class="ow">in</span> <span class="n">urlList2</span><span class="p">:</span>
+            <span class="n">url2</span> <span class="o">=</span> <span class="n">baseUrl</span><span class="o">+</span><span class="n">url1</span>
+            <span class="n">urlList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">url2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">urlList</span>
+
+<span class="k">def</span> <span class="nf">openUrl</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+    <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+                  <span class="s">'User-Agent'</span><span class="p">:</span> <span class="s">'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) '</span>                            <span class="s">'Chrome/51.0.2704.63 Safari/537.36'</span>
+               <span class="p">}</span>
+
+    <span class="n">filePath</span><span class="o">=</span><span class="n">targetPath</span><span class="o">+</span><span class="n">url</span><span class="p">[</span><span class="o">-</span><span class="mi">12</span><span class="p">:</span><span class="o">-</span><span class="mi">5</span><span class="p">]</span>
+    <span class="c1">#检测当前路径的有效性
+</span>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">filePath</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">filePath</span><span class="p">)</span>
+        <span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">Request</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">downImg</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">filePath</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">"已经下载过的地址跳过："</span><span class="o">+</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="s">"filePath  "</span><span class="o">+</span><span class="n">filePath</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">downImg</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="n">filePath</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">link</span><span class="p">,</span><span class="n">t</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s">r'([http|https]:[^\s]*?(jpg|png|gif))'</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">data</span><span class="p">))):</span>
+
+        <span class="k">if</span> <span class="n">link</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">'s'</span><span class="p">):</span>
+            <span class="n">link</span><span class="o">=</span><span class="s">'http'</span><span class="o">+</span><span class="n">link</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">link</span><span class="o">=</span><span class="s">'htt'</span><span class="o">+</span><span class="n">link</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">opener</span><span class="o">=</span><span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">build_opener</span><span class="p">()</span>
+            <span class="n">opener</span><span class="o">.</span><span class="n">addheaders</span><span class="o">=</span><span class="p">[(</span><span class="s">'User-Agent'</span><span class="p">,</span><span class="s">'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1941.0 Safari/537.36'</span><span class="p">)]</span>
+            <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">install_opener</span><span class="p">(</span><span class="n">opener</span><span class="p">)</span>
+            <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlretrieve</span><span class="p">(</span><span class="n">link</span><span class="p">,</span><span class="n">saveFile</span><span class="p">(</span><span class="n">link</span><span class="p">,</span><span class="n">filePath</span><span class="p">))</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">'失败'</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">saveFile</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">filePath</span><span class="p">):</span>
+    <span class="c1">#设置每个图片的路径
+</span>    <span class="n">pos</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">rindex</span><span class="p">(</span><span class="s">'/'</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">filePath</span><span class="p">,</span><span class="n">path</span><span class="p">[</span><span class="n">pos</span><span class="o">+</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">return</span> <span class="n">t</span>
+
+
+<span class="k">def</span> <span class="nf">openPage</span><span class="p">(</span><span class="n">UrlList</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">pageUlr</span> <span class="ow">in</span> <span class="n">UrlList</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">'正在下载地址：'</span><span class="o">+</span><span class="n">pageUlr</span><span class="p">)</span>
+            <span class="n">openUrl</span><span class="p">(</span><span class="n">pageUlr</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">'地址：'</span><span class="o">+</span><span class="n">pageUlr</span><span class="o">+</span><span class="s">'下载失败'</span><span class="p">)</span>
+
+<span class="n">URL</span> <span class="o">=</span> <span class="n">baseUrl</span><span class="o">+</span><span class="s">'thread0806.php?fid=16&amp;search=&amp;page='</span>
+<span class="k">for</span> <span class="n">num</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">20</span><span class="p">):</span><span class="c1">#0-20页
+</span>    <span class="k">print</span><span class="p">(</span><span class="s">"#######################################"</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">"##########总目录下载地址###############"</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">URL</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">num</span><span class="p">))</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">"#######################################"</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">"#######################################"</span><span class="p">)</span>
+    <span class="n">UrlList</span> <span class="o">=</span> <span class="n">getUrl</span><span class="p">(</span><span class="n">URL</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">num</span><span class="p">))</span> 
+    <span class="n">openPage</span><span class="p">(</span><span class="n">UrlList</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>最后的爬取结果：</p>
+
+<p><img src="http://www.ityouknow.com/assets/images/2016/1024result.jpg" alt="result" /></p>
+
+<blockquote>
+  <p>源代码地址：<a href="https://github.com/ityouknow/python-crawler">python-crawler</a><br />
+<strong>具体地址和源代码在一起</strong></p>
+</blockquote>
+
+<h2 id="其它">其它</h2>
+
+<p>关于python2和python3的争论，网站争论比较大python3不兼容pyhton2，很多第三方的类库暂时还没有支持python3等等，但是对于我们新手来说，肯定是往前看果断python3.</p>
+
+<p>代码比较冗余几个地方还没有写好，还在慢慢学习中，目前只是搞的可以跑起来。还有几个问题没有解决，下载一段时间后会莫名其妙的断掉目前还么找到原因，后期看是否可以加上多线程来爬取可能会快一点，大家有什么更好的建议也可以提出来。</p>
+
+<h2 id="参考">参考：</h2>
+
+<p><a href="http://blog.csdn.net/fly_yr/article/details/51525945">爬取豆瓣首页图片</a></p>
+
+<p><a href="http://zzydev.com/python/2016/05/20/Python1024">使用Python爬取1024上的图片</a></p>
+
+<hr />
+
+<p><strong>作者：纯洁的微笑</strong><br />
+<strong>出处：<a href="http://www.ityouknow.com">www.ityouknow.com</a></strong><br />
+<strong>版权所有，欢迎保留原文链接进行转载：)</strong></p>
+:ET

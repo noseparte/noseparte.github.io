@@ -1,0 +1,50 @@
+I"[<h2 id="1shell命令下载">1、shell命令下载</h2>
+
+<p>linux终端上面 执行sz操作后，文件目录</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/Users/neo/Documents/
+</code></pre></div></div>
+
+<h2 id="2如何强制退出mac-应用">2、如何强制退出Mac 应用</h2>
+
+<p>1）从苹果() 菜单中选取“强制退出”，或按下Command-Option-Esc。 这类似于在PC 上按下Control-Alt-Delete。</p>
+
+<p>2）在“强制退出”窗口中，选择该应用，然后点按“强制退出”。</p>
+
+<h2 id="3如何强制删除mac应用">3、如何强制删除Mac应用</h2>
+
+<p>前往/go 前往“应用程序”,选择需要删除的应用 快捷键command+delete或者拖到垃圾箱</p>
+
+<h2 id="4mac安装不同版本jdk已经命令切换到不同版本">4、mac安装不同版本jdk，已经命令切换到不同版本</h2>
+
+<p><a href="http://www.oracle.com/technetwork/java/javase/downloads/index.html">jdk下载地址</a></p>
+
+<p>安装完之后，jkd 在 /Library/Java/JavaVirtualMachines 目录下</p>
+
+<p>打开~/.bash_profile，没有的话创建</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vim ~/.bash_profile 
+</code></pre></div></div>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">JAVA_7_HOME</span><span class="o">=</span>/Library/Java/JavaVirtualMachines/jdk1.7.0_80.jdk/Contents/Home
+<span class="nb">export </span><span class="nv">JAVA_8_HOME</span><span class="o">=</span>/Library/Java/JavaVirtualMachines/jdk1.8.0_144.jdk/Contents/Home
+
+<span class="nb">alias </span><span class="nv">jdk7</span><span class="o">=</span><span class="s2">"export JAVA_HOME=</span><span class="nv">$JAVA_7_HOME</span><span class="s2">"</span> <span class="c">#编辑一个命令jdk8，输入则转至jdk1.7</span>
+<span class="nb">alias </span><span class="nv">jdk8</span><span class="o">=</span><span class="s2">"export JAVA_HOME=</span><span class="nv">$JAVA_8_HOME</span><span class="s2">"</span> <span class="c">#编辑一个命令jdk8，输入则转至jdk1.8</span>
+
+<span class="nb">export </span><span class="nv">JAVA_HOME</span><span class="o">=</span><span class="sb">`</span>/usr/libexec/java_home<span class="sb">`</span>  <span class="c">#最后安装的版本，这样当自动更新时，始终指向最新版本</span>
+</code></pre></div></div>
+
+<p>验证</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#使配置文件生效</span>
+<span class="nb">.</span> .bash_profile
+jdk8
+java  <span class="nt">-version</span>
+jdk7
+java <span class="nt">-version</span>
+</code></pre></div></div>
+
+<p>执行jdk7就会切换到jdk7的环境，输入jdk8就会切入到jdk8的环境。</p>
+
+:ET

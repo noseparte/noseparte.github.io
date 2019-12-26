@@ -1,0 +1,395 @@
+I"�x<p>这篇文件介绍如何动态的添加、下架mongod分片和副本集，以及如何监控和运维mongodb。</p>
+
+<h2 id="添加节点">添加节点</h2>
+
+<h3 id="副本集-改为仲裁节点">副本集 改为仲裁节点</h3>
+
+<p><a href="https://docs.mongodb.com/manual/tutorial/convert-secondary-into-arbiter/">convert-secondary-into-arbiter</a></p>
+
+<p>登录</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mongo 192.168.0.35:27005
+<span class="c">#使用admin数据库</span>
+use admin
+</code></pre></div></div>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#查看分区状态</span>
+rs.status<span class="o">()</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>移除副本集</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rs.remove<span class="o">(</span><span class="s2">"192.168.0.35:27005"</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p>查看配置</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rs.conf<span class="o">()</span>
+</code></pre></div></div>
+
+<p>删除shard5的数据目录，重启shard5</p>
+
+<p>重新添加仲裁节点</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rs.addArb<span class="o">(</span><span class="s2">"192.168.0.35:27005"</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p>查看配置</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rs.conf<span class="o">()</span>
+</code></pre></div></div>
+
+<h3 id="仲裁节点改成副本集">仲裁节点改成副本集</h3>
+
+<p><a href="https://docs.mongodb.com/manual/tutorial/expand-replica-set/">Add Members to a Replica Set</a></p>
+
+<p>移除仲裁节点</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rs.remove<span class="o">(</span><span class="s2">"192.168.0.35:27005"</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p>删除总裁节点的数据，并重启</p>
+
+<p>在 primary 添加副本节点</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rs.add<span class="o">(</span><span class="s2">"192.168.0.35:27005"</span><span class="o">)</span>
+</code></pre></div></div>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rs.conf<span class="o">()</span>
+rs.status<span class="o">()</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>刚添加的副本集状态为：STARTUP2</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="s2">"stateStr"</span> : <span class="s2">"STARTUP2"</span>,
+</code></pre></div></div>
+
+<h2 id="集群中添加分片">集群中添加分片</h2>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mongo 192.168.0.31:20000
+<span class="c">#使用admin数据库</span>
+use  admin
+<span class="c">#添加分片</span>
+sh.addShard<span class="o">(</span><span class="s2">"shard5/192.168.0.35:27005,192.168.0.31:27005,192.168.0.32:27005"</span><span class="o">)</span>
+<span class="c">#查看集群状态</span>
+sh.status<span class="o">()</span>
+</code></pre></div></div>
+
+<h2 id="监控">监控</h2>
+
+<h3 id="mongostat">mongostat</h3>
+
+<p>mongostat是mongdb自带的状态检测工具，在命令行下使用。它会间隔固定时间获取mongodb的当前运行状态，并输出。如果你发现数据库突然变慢或者有其他问题的话，你第一手的操作就考虑采用mongostat来查看mongo的状态。</p>
+
+<p>它的输出有以下几列：</p>
+
+<ul>
+  <li>inserts/s 每秒插入次数</li>
+  <li>query/s 每秒查询次数</li>
+  <li>update/s 每秒更新次数</li>
+  <li>delete/s 每秒删除次数</li>
+  <li>getmore/s 每秒执行getmore次数</li>
+  <li>command/s 每秒的命令数，比以上插入、查找、更新、删除的综合还多，还统计了别的命令</li>
+  <li>flushs/s 每秒执行fsync将数据写入硬盘的次数。</li>
+  <li>mapped/s 所有的被mmap的数据量，单位是MB，</li>
+  <li>vsize 虚拟内存使用量，单位MB</li>
+  <li>res 物理内存使用量，单位MB</li>
+  <li>faults/s 每秒访问失败数（只有Linux有），数据被交换出物理内存，放到swap。不要超过100，否则就是机器内存太小，造成频繁swap写入。此时要升级内存或者扩展</li>
+  <li>locked % 被锁的时间百分比，尽量控制在50%以下吧</li>
+  <li>idx miss % 索引不命中所占百分比。如果太高的话就要考虑索引是不是少了</li>
+  <li><code class="highlighter-rouge">q t|r|w</code> 当Mongodb接收到太多的命令而数据库被锁住无法执行完成，它会将命令加入队列。这一栏显示了总共、读、写3个队列的长度，都为0的话表示mongo毫无压力。高并发时，一般队列值会升高。</li>
+  <li>conn 当前连接数</li>
+  <li>time 时间戳</li>
+</ul>
+
+<p>示例：</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mongostat <span class="nt">-h</span> 192.168.0.31:27001
+<span class="c">##返回结果</span>
+insert query update delete getmore <span class="nb">command </span>dirty  used flushes vsize   res qrw arw net_in net_out conn    <span class="nb">set </span>repl                <span class="nb">time
+   </span>576    <span class="k">*</span>0     <span class="k">*</span>0     <span class="k">*</span>0     455  1370|0  2.7% 64.0%       0 15.8G 13.9G 0|1 0|0  1.82m   1.44m   77 shard1  PRI Aug 23 17:05:25.495
+   514    <span class="k">*</span>0     <span class="k">*</span>0     <span class="k">*</span>0     446  1336|0  2.7% 64.0%       0 15.8G 13.9G 0|1 0|0  1.71m   1.29m   77 shard1  PRI Aug 23 17:05:26.495
+   499    <span class="k">*</span>0     <span class="k">*</span>0     <span class="k">*</span>0     461  1310|0  2.7% 64.0%       0 15.8G 13.9G 0|0 1|0  1.68m   1.27m   77 shard1  PRI Aug 23 17:05:27.495
+   485    <span class="k">*</span>0     <span class="k">*</span>0     <span class="k">*</span>0     442  1285|0  2.7% 64.0%       0 15.8G 13.9G 0|0 0|1  1.64m   1.24m   77 shard1  PRI Aug 23 17:05:28.496
+   498    <span class="k">*</span>0     <span class="k">*</span>0     <span class="k">*</span>0     444  1317|0  2.7% 64.0%       0 15.8G 13.9G 0|0 0|0  1.68m   1.26m   77 shard1  PRI Aug 23 17:05:29.494
+   477    <span class="k">*</span>0     <span class="k">*</span>0     <span class="k">*</span>0     445  1272|0  2.7% 64.0%       0 15.8G 13.9G 0|0 0|0  1.61m   1.22m   77 shard1  PRI Aug 23 17:05:30.494
+</code></pre></div></div>
+
+<p>mongostat间隔时间刷新mongodb分片的各项操作。</p>
+
+<h2 id="mongotop">mongotop</h2>
+
+<p>mongotop用来跟踪MongoDB的实例， 提供每个集合的统计数据。默认情况下，mongotop每一秒刷新一次。
+mongotop用法：</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mongotop <span class="nt">-h</span> 192.168.0.31:27001 10
+</code></pre></div></div>
+
+<p>后面的10是<sleeptime>参数 ，可以不使用，等待的时间长度，以秒为单位，mongotop等待调用之间。通过的默认mongotop返回数据的每一秒。</sleeptime></p>
+
+<p>mongotop –locks
+报告每个数据库的锁的使用中，使用mongotop - 锁，这将产生以下输出：</p>
+
+<p>结果字段介绍：
+ns：包含数据库命名空间，后者结合了数据库名称和集合。
+db：包含数据库的名称。名为 . 的数据库针对全局锁定，而非特定数据库。
+total：mongod花费的时间工作在这个命名空间提供总额。
+read：提供了大量的时间，这mongod花费在执行读操作，在此命名空间。
+write：提供这个命名空间进行写操作，这mongod花了大量的时间。</p>
+
+<h3 id="profiler">profiler</h3>
+
+<p>类似于MySQL的slow log, MongoDB可以监控所有慢的以及不慢的查询。</p>
+
+<p>Profiler默认是关闭的，你可以选择全部开启，或者有慢查询的时候开启。</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> use <span class="nb">test
+</span>switched to db <span class="nb">test</span>
+<span class="o">&gt;</span> db.setProfilingLevel<span class="o">(</span>2<span class="o">)</span><span class="p">;</span>
+<span class="o">{</span><span class="s2">"was"</span> : 0 , <span class="s2">"slowms"</span> : 100, <span class="s2">"ok"</span> : 1<span class="o">}</span> // <span class="s2">"was"</span> is the old setting
+<span class="o">&gt;</span> db.getProfilingLevel<span class="o">()</span>
+</code></pre></div></div>
+
+<p>查看Profile日志</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> db.system.profile.find<span class="o">()</span>.sort<span class="o">({</span><span class="nv">$natural</span>:-1<span class="o">})</span>
+<span class="o">{</span><span class="s2">"ts"</span> : <span class="s2">"Thu Jan 29 2009 15:19:32 GMT-0500 (EST)"</span> , <span class="s2">"info"</span> :
+<span class="s2">"query test.</span><span class="nv">$cmd</span><span class="s2"> ntoreturn:1 reslen:66 nscanned:0 query: { profile: 2 } nreturned:1 bytes:50"</span> ,
+<span class="s2">"millis"</span> : 0<span class="o">}</span> ...
+</code></pre></div></div>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#查看系统中的慢查询数量</span>
+db.system.profile.count<span class="o">()</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>3个字段的意义</p>
+
+<ul>
+  <li>ts：时间戳</li>
+  <li>info：具体的操作</li>
+  <li>millis：操作所花时间，毫秒</li>
+</ul>
+
+<p>参考：<a href="https://docs.mongodb.com/manual/tutorial/manage-the-database-profiler/">Database Profiler</a></p>
+
+<p>注意，造成满查询可能是索引的问题，也可能是数据不在内存造成因此磁盘读入造成。</p>
+
+<h3 id="dbserverstatus">db.serverStatus()</h3>
+
+<p>db.serverStatus()</p>
+
+<p>获取服务器的状态</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">{</span>
+        <span class="s2">"host"</span> : <span class="s2">"mongodb31.hkrt.cn:20000"</span>,
+        <span class="s2">"version"</span> : <span class="s2">"3.4.6"</span>,
+        <span class="s2">"process"</span> : <span class="s2">"mongos"</span>,
+        <span class="s2">"pid"</span> : NumberLong<span class="o">(</span>1940<span class="o">)</span>,
+        <span class="s2">"uptime"</span> : 67854,
+        <span class="s2">"uptimeMillis"</span> : NumberLong<span class="o">(</span>67853593<span class="o">)</span>,
+        <span class="s2">"uptimeEstimate"</span> : NumberLong<span class="o">(</span>67853<span class="o">)</span>,
+        <span class="s2">"localTime"</span> : ISODate<span class="o">(</span><span class="s2">"2017-08-23T09:39:55.400Z"</span><span class="o">)</span>,
+        <span class="s2">"asserts"</span> : <span class="o">{</span>
+                <span class="s2">"regular"</span> : 0,
+                <span class="s2">"warning"</span> : 0,
+                <span class="s2">"msg"</span> : 0,
+                <span class="s2">"user"</span> : 7048,
+                <span class="s2">"rollovers"</span> : 0
+        <span class="o">}</span>,
+        <span class="s2">"connections"</span> : <span class="o">{</span>
+                <span class="s2">"current"</span> : 56,
+                <span class="s2">"available"</span> : 52372,
+                <span class="s2">"totalCreated"</span> : 523
+        <span class="o">}</span>,
+        <span class="s2">"extra_info"</span> : <span class="o">{</span>
+                <span class="s2">"note"</span> : <span class="s2">"fields vary by platform"</span>,
+                <span class="s2">"page_faults"</span> : 3
+        <span class="o">}</span>,
+        <span class="s2">"network"</span> : <span class="o">{</span>
+                <span class="s2">"bytesIn"</span> : NumberLong<span class="o">(</span><span class="s2">"102972729600"</span><span class="o">)</span>,
+                <span class="s2">"bytesOut"</span> : NumberLong<span class="o">(</span><span class="s2">"7551683898"</span><span class="o">)</span>,
+                <span class="s2">"physicalBytesIn"</span> : NumberLong<span class="o">(</span><span class="s2">"102972729600"</span><span class="o">)</span>,
+                <span class="s2">"physicalBytesOut"</span> : NumberLong<span class="o">(</span><span class="s2">"7551683898"</span><span class="o">)</span>,
+                <span class="s2">"numRequests"</span> : NumberLong<span class="o">(</span>210803831<span class="o">)</span>
+        <span class="o">}</span>,
+        <span class="s2">"opcounters"</span> : <span class="o">{</span>
+                <span class="s2">"insert"</span> : 79028505,
+                <span class="s2">"query"</span> : 26334341,
+                <span class="s2">"update"</span> : 0,
+                <span class="s2">"delete"</span> : 4,
+                <span class="s2">"getmore"</span> : 0,
+                <span class="s2">"command"</span> : 79067537
+        <span class="o">}</span>,
+        <span class="s2">"sharding"</span> : <span class="o">{</span>
+                <span class="s2">"configsvrConnectionString"</span> : <span class="s2">"config/192.168.0.33:21000,192.168.0.34:21000,192.168.0.35:21000"</span>,
+                <span class="s2">"lastSeenConfigServerOpTime"</span> : <span class="o">{</span>
+                        <span class="s2">"ts"</span> : Timestamp<span class="o">(</span>1503481193, 1<span class="o">)</span>,
+                        <span class="s2">"t"</span> : NumberLong<span class="o">(</span>1<span class="o">)</span>
+                <span class="o">}</span>
+        <span class="o">}</span>,
+        <span class="s2">"tcmalloc"</span> : <span class="o">{</span>
+                <span class="s2">"generic"</span> : <span class="o">{</span>
+                        <span class="s2">"current_allocated_bytes"</span> : 3643648,
+                        <span class="s2">"heap_size"</span> : 40898560
+                <span class="o">}</span>,
+                <span class="s2">"tcmalloc"</span> : <span class="o">{</span>
+                        <span class="s2">"pageheap_free_bytes"</span> : 36864,
+                        <span class="s2">"pageheap_unmapped_bytes"</span> : 24522752,
+                        <span class="s2">"max_total_thread_cache_bytes"</span> : NumberLong<span class="o">(</span>1073741824<span class="o">)</span>,
+                        <span class="s2">"current_total_thread_cache_bytes"</span> : 4660344,
+                        <span class="s2">"total_free_bytes"</span> : 12695296,
+                        <span class="s2">"central_cache_free_bytes"</span> : 2833608,
+                        <span class="s2">"transfer_cache_free_bytes"</span> : 5201344,
+                        <span class="s2">"thread_cache_free_bytes"</span> : 4660344,
+                        <span class="s2">"aggressive_memory_decommit"</span> : 0,
+                        <span class="s2">"formattedString"</span> : <span class="s2">"------------------------------------------------</span><span class="se">\n</span><span class="s2">MALLOC:        3643648 (    3.5 MiB) Bytes in use by application</span><span class="se">\n</span><span class="s2">MALLOC: +        36864 (    0.0 MiB) Bytes in page heap freelist</span><span class="se">\n</span><span class="s2">MALLOC: +      2833608 (    2.7 MiB) Bytes in central cache freelist</span><span class="se">\n</span><span class="s2">MALLOC: +      5201344 (    5.0 MiB) Bytes in transfer cache freelist</span><span class="se">\n</span><span class="s2">MALLOC: +      4660344 (    4.4 MiB) Bytes in thread cache freelists</span><span class="se">\n</span><span class="s2">MALLOC: +      1401024 (    1.3 MiB) Bytes in malloc metadata</span><span class="se">\n</span><span class="s2">MALLOC:   ------------</span><span class="se">\n</span><span class="s2">MALLOC: =     17776832 (   17.0 MiB) Actual memory used (physical + swap)</span><span class="se">\n</span><span class="s2">MALLOC: +     24522752 (   23.4 MiB) Bytes released to OS (aka unmapped)</span><span class="se">\n</span><span class="s2">MALLOC:   ------------</span><span class="se">\n</span><span class="s2">MALLOC: =     42299584 (   40.3 MiB) Virtual address space used</span><span class="se">\n</span><span class="s2">MALLOC:</span><span class="se">\n</span><span class="s2">MALLOC:           1936              Spans in use</span><span class="se">\n</span><span class="s2">MALLOC:            109              Thread heaps in use</span><span class="se">\n</span><span class="s2">MALLOC:           4096              Tcmalloc page size</span><span class="se">\n</span><span class="s2">------------------------------------------------</span><span class="se">\n</span><span class="s2">Call ReleaseFreeMemory() to release freelist memory to the OS (via madvise()).</span><span class="se">\n</span><span class="s2">Bytes released to the OS take up virtual address space but no physical memory.</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="o">}</span>
+        <span class="o">}</span>,
+        <span class="s2">"mem"</span> : <span class="o">{</span>
+                <span class="s2">"bits"</span> : 64,
+                <span class="s2">"resident"</span> : 24,
+                <span class="s2">"virtual"</span> : 689,
+                <span class="s2">"supported"</span> : <span class="nb">true</span>
+        <span class="o">}</span>,
+        <span class="s2">"metrics"</span> : <span class="o">{</span>
+                <span class="s2">"cursor"</span> : <span class="o">{</span>
+                        <span class="s2">"timedOut"</span> : NumberLong<span class="o">(</span>21<span class="o">)</span>,
+                        <span class="s2">"open"</span> : <span class="o">{</span>
+                                <span class="s2">"multiTarget"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"singleTarget"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"pinned"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>
+                        <span class="o">}</span>
+                <span class="o">}</span>,
+                <span class="s2">"commands"</span> : <span class="o">{</span>
+                        <span class="s2">"aggregate"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>1<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>16<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"balancerStatus"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>2<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"buildInfo"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>519<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"collStats"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>1<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>97<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"count"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>12<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"createIndexes"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>4<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"currentOp"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>2<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"dbStats"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>4<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"delete"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>4<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"drop"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>7<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"dropDatabase"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>2<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"find"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>2<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>26334294<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"getLastError"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>252<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"getLog"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>6<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"insert"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>79028505<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"isMaster"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>24048<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"listCollections"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>44<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"listDatabases"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>1<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>135<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"ping"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>13575<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"profile"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>3<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>3<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"replSetGetStatus"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>34<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>34<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"serverStatus"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>131<span class="o">)</span>
+                        <span class="o">}</span>,
+                        <span class="s2">"whatsmyuri"</span> : <span class="o">{</span>
+                                <span class="s2">"failed"</span> : NumberLong<span class="o">(</span>0<span class="o">)</span>,
+                                <span class="s2">"total"</span> : NumberLong<span class="o">(</span>135<span class="o">)</span>
+                        <span class="o">}</span>
+                <span class="o">}</span>
+        <span class="o">}</span>,
+        <span class="s2">"ok"</span> : 1
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>需要关心的地方：</p>
+
+<ul>
+  <li>connections 当前连接和可用连接数，听过一个同行介绍过，mongodb最大处理到2000个连接就不行了（要根据你的机器性能和业务来设定），所以设大了没意义。设个合理值的话，到达这个值mongodb就拒绝新的连接请求，避免被太多的连接拖垮。</li>
+  <li>indexCounters:btree:misses 索引的不命中数，和hits的比例高就要考虑索引是否正确建立。你看我的”missRatio”3.543930204420982e-7，很健康吧。所以miss率在mongostat里面也可以看</li>
+  <li>其他的都能自解释，也不是查看mongo健康状况的关键，就不说明了。</li>
+</ul>
+
+<p>详细的解释参考这里：<a href="https://docs.mongodb.com/manual/reference/command/serverStatus/#dbcmd.serverStatus">serverStatus</a></p>
+
+<h3 id="dbcurrentop">db.currentOp()</h3>
+
+<p>Mongodb 的命令一般很快就完成，但是在一台繁忙的机器或者有比较慢的命令时，你可以通过db.currentOp()获取当前正在执行的操作。</p>
+
+<p>在没有负载的机器上，该命令基本上都是返回空的</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span>  db.currentOp<span class="o">()</span>
+<span class="o">{</span> <span class="s2">"inprog"</span> : <span class="o">[</span> <span class="o">]</span> <span class="o">}</span>
+</code></pre></div></div>
+
+<p>以下是一个有负载的机器上得到的返回值样例：</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">{</span> <span class="s2">"opid"</span> : <span class="s2">"shard3:466404288"</span>, <span class="s2">"active"</span> : <span class="nb">false</span>, <span class="s2">"waitingForLock"</span> : <span class="nb">false</span>, <span class="s2">"op"</span> : <span class="s2">"query"</span>, <span class="s2">"ns"</span> : <span class="s2">"sd.usersEmails"</span>, <span class="s2">"query"</span> : <span class="o">{</span> <span class="o">}</span>, <span class="s2">"client_s"</span> : <span class="s2">"10.121.13.8:34473"</span>, <span class="s2">"desc"</span> : <span class="s2">"conn"</span> <span class="o">}</span>,
+</code></pre></div></div>
+
+<p>字段名字都能自解释。如果你发现一个操作太长，把数据库卡死的话，可以用这个命令杀死他</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> db.killOp<span class="o">(</span><span class="s2">"shard3:466404288"</span><span class="o">)</span>
+</code></pre></div></div>
+
+<p><a href="https://docs.mongodb.com/manual/reference/method/db.currentOp/index.html">db.currentOp()</a></p>
+
+:ET

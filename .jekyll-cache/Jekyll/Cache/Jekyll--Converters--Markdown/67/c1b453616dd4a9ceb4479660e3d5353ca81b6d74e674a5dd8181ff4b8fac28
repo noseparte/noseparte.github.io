@@ -1,0 +1,219 @@
+I"�9<p>上一篇文章我们介绍了eureka服务注册中心的搭建，这篇文章介绍一下如何使用eureka服务注册中心，搭建一个简单的服务端注册服务，客户端去调用服务使用的案例。</p>
+
+<p>案例中有三个角色：服务注册中心、服务提供者、服务消费者，其中服务注册中心就是我们上一篇的eureka单机版启动既可，流程是首先启动注册中心，服务提供者生产服务并注册到服务中心中，消费者从服务中心中获取服务并执行。</p>
+
+<h2 id="服务提供">服务提供</h2>
+
+<p>我们假设服务提供者有一个hello方法，可以根据传入的参数，提供输出“hello  xxx，this is first messge”的服务</p>
+
+<h3 id="1pom包配置">1、pom包配置</h3>
+
+<p>创建一个springboot项目，pom.xml中添加如下配置：</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependencies&gt;</span>
+	<span class="nt">&lt;dependency&gt;</span>
+		<span class="nt">&lt;groupId&gt;</span>org.springframework.cloud<span class="nt">&lt;/groupId&gt;</span>
+		<span class="nt">&lt;artifactId&gt;</span>spring-cloud-starter-eureka<span class="nt">&lt;/artifactId&gt;</span>
+	<span class="nt">&lt;/dependency&gt;</span>
+	<span class="nt">&lt;dependency&gt;</span>
+		<span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+		<span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-test<span class="nt">&lt;/artifactId&gt;</span>
+		<span class="nt">&lt;scope&gt;</span>test<span class="nt">&lt;/scope&gt;</span>
+	<span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;/dependencies&gt;</span>
+</code></pre></div></div>
+
+<h3 id="2配置文件">2、配置文件</h3>
+
+<p>application.properties配置如下：</p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">spring.application.name</span><span class="p">=</span><span class="s">spring-cloud-producer</span>
+<span class="py">server.port</span><span class="p">=</span><span class="s">9000</span>
+<span class="py">eureka.client.serviceUrl.defaultZone</span><span class="p">=</span><span class="s">http://localhost:8000/eureka/</span>
+</code></pre></div></div>
+
+<p>参数在上一篇都已经解释过，这里不多说。</p>
+
+<h3 id="3启动类">3、启动类</h3>
+
+<p>启动类中添加<code class="highlighter-rouge">@EnableDiscoveryClient</code>注解</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@SpringBootApplication</span>
+<span class="nd">@EnableDiscoveryClient</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">ProducerApplication</span> <span class="o">{</span>
+
+	<span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="nc">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+		<span class="nc">SpringApplication</span><span class="o">.</span><span class="na">run</span><span class="o">(</span><span class="nc">ProducerApplication</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="n">args</span><span class="o">);</span>
+	<span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="4controller">4、controller</h3>
+
+<p>提供hello服务</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@RestController</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloController</span> <span class="o">{</span>
+	
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/hello"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">index</span><span class="o">(</span><span class="nd">@RequestParam</span> <span class="nc">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="s">"hello "</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s">"，this is first messge"</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>添加<code class="highlighter-rouge">@EnableDiscoveryClient</code>注解后，项目就具有了服务注册的功能。启动工程后，就可以在注册中心的页面看到SPRING-CLOUD-PRODUCER服务。</p>
+
+<p><img src="http://www.itmind.net/assets/images/2017/springcloud/eureka_server.png" alt="" /></p>
+
+<p>到此服务提供者配置就完成了。</p>
+
+<h2 id="服务调用">服务调用</h2>
+
+<h3 id="1pom包配置-1">1、pom包配置</h3>
+
+<p>和服务提供者一致</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependencies&gt;</span>
+	<span class="nt">&lt;dependency&gt;</span>
+		<span class="nt">&lt;groupId&gt;</span>org.springframework.cloud<span class="nt">&lt;/groupId&gt;</span>
+		<span class="nt">&lt;artifactId&gt;</span>spring-cloud-starter-eureka<span class="nt">&lt;/artifactId&gt;</span>
+	<span class="nt">&lt;/dependency&gt;</span>
+	<span class="nt">&lt;dependency&gt;</span>
+		<span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+		<span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-test<span class="nt">&lt;/artifactId&gt;</span>
+		<span class="nt">&lt;scope&gt;</span>test<span class="nt">&lt;/scope&gt;</span>
+	<span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;/dependencies&gt;</span>
+</code></pre></div></div>
+
+<h3 id="2配置文件-1">2、配置文件</h3>
+
+<p>application.properties配置如下：</p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">spring.application.name</span><span class="p">=</span><span class="s">spring-cloud-consumer</span>
+<span class="py">server.port</span><span class="p">=</span><span class="s">9001</span>
+<span class="py">eureka.client.serviceUrl.defaultZone</span><span class="p">=</span><span class="s">http://localhost:8000/eureka/</span>
+</code></pre></div></div>
+
+<h3 id="3启动类-1">3、启动类</h3>
+
+<p>启动类添加<code class="highlighter-rouge">@EnableDiscoveryClient</code>和<code class="highlighter-rouge">@EnableFeignClients</code>注解。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@SpringBootApplication</span>
+<span class="nd">@EnableDiscoveryClient</span>
+<span class="nd">@EnableFeignClients</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">ConsumerApplication</span> <span class="o">{</span>
+
+	<span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="nc">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+		<span class="nc">SpringApplication</span><span class="o">.</span><span class="na">run</span><span class="o">(</span><span class="nc">ConsumerApplication</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="n">args</span><span class="o">);</span>
+	<span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<ul>
+  <li><code class="highlighter-rouge">@EnableDiscoveryClient</code> :启用服务注册与发现</li>
+  <li><code class="highlighter-rouge">@EnableFeignClients</code>：启用feign进行远程调用</li>
+</ul>
+
+<blockquote>
+  <p>Feign是一个声明式Web Service客户端。使用Feign能让编写Web Service客户端更加简单, 它的使用方法是定义一个接口，然后在上面添加注解，同时也支持JAX-RS标准的注解。Feign也支持可拔插式的编码器和解码器。Spring Cloud对Feign进行了封装，使其支持了Spring MVC标准注解和HttpMessageConverters。Feign可以与Eureka和Ribbon组合使用以支持负载均衡。</p>
+</blockquote>
+
+<h3 id="4feign调用实现">4、feign调用实现</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@FeignClient</span><span class="o">(</span><span class="n">name</span><span class="o">=</span> <span class="s">"spring-cloud-producer"</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">interface</span> <span class="nc">HelloRemote</span> <span class="o">{</span>
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="n">value</span> <span class="o">=</span> <span class="s">"/hello"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">hello</span><span class="o">(</span><span class="nd">@RequestParam</span><span class="o">(</span><span class="n">value</span> <span class="o">=</span> <span class="s">"name"</span><span class="o">)</span> <span class="nc">String</span> <span class="n">name</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<ul>
+  <li>name:远程服务名，及spring.application.name配置的名称</li>
+</ul>
+
+<p>此类中的方法和远程服务中contoller中的方法名和参数需保持一致。</p>
+
+<h3 id="5web层调用远程服务">5、web层调用远程服务</h3>
+
+<p>将HelloRemote注入到controller层，像普通方法一样去调用即可。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@RestController</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">ConsumerController</span> <span class="o">{</span>
+
+    <span class="nd">@Autowired</span>
+    <span class="nc">HelloRemote</span> <span class="nc">HelloRemote</span><span class="o">;</span>
+	
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/hello/{name}"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">index</span><span class="o">(</span><span class="nd">@PathVariable</span><span class="o">(</span><span class="s">"name"</span><span class="o">)</span> <span class="nc">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="nc">HelloRemote</span><span class="o">.</span><span class="na">hello</span><span class="o">(</span><span class="n">name</span><span class="o">);</span>
+    <span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>到此，最简单的一个服务注册与调用的例子就完成了。</p>
+
+<h2 id="测试">测试</h2>
+
+<h3 id="简单调用">简单调用</h3>
+<p>依次启动spring-cloud-eureka、spring-cloud-producer、spring-cloud-consumer三个项目</p>
+
+<p>先输入：<code class="highlighter-rouge">http://localhost:9000/hello?name=neo</code> 检查spring-cloud-producer服务是否正常</p>
+
+<p>返回：<code class="highlighter-rouge">hello neo，this is first messge</code></p>
+
+<p>说明spring-cloud-producer正常启动，提供的服务也正常。</p>
+
+<p>浏览器中输入：<code class="highlighter-rouge">http://localhost:9001/hello/neo</code></p>
+
+<p>返回：<code class="highlighter-rouge">hello neo，this is first messge</code></p>
+
+<p>说明客户端已经成功的通过feign调用了远程服务hello，并且将结果返回到了浏览器。</p>
+
+<h3 id="负载均衡">负载均衡</h3>
+
+<p>以上面spring-cloud-producer为例子修改，将其中的controller改动如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@RestController</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloController</span> <span class="o">{</span>
+	
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/hello"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">String</span> <span class="nf">index</span><span class="o">(</span><span class="nd">@RequestParam</span> <span class="nc">String</span> <span class="n">name</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="s">"hello "</span><span class="o">+</span><span class="n">name</span><span class="o">+</span><span class="s">"，this is producer 2  send first messge"</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>在配置文件中改动端口：</p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">spring.application.name</span><span class="p">=</span><span class="s">spring-cloud-producer</span>
+<span class="py">server.port</span><span class="p">=</span><span class="s">9003</span>
+<span class="py">eureka.client.serviceUrl.defaultZone</span><span class="p">=</span><span class="s">http://localhost:8000/eureka/</span>
+</code></pre></div></div>
+
+<p>打包启动后，在eureka就会发现两个服务提供者，如下图：</p>
+
+<p><img src="http://www.itmind.net/assets/images/2017/springcloud/eureka_server2.png" alt="" /></p>
+
+<p>然后在浏览器再次输入：<code class="highlighter-rouge">http://localhost:9001/hello/neo</code>  进行测试：</p>
+
+<p>第一次返回结果：<code class="highlighter-rouge">hello neo，this is first messge</code></p>
+
+<p>第二次返回结果：<code class="highlighter-rouge">hello neo，this is producer 2  send first messge</code></p>
+
+<p>不断的进行测试下去会发现两种结果交替出现，说明两个服务中心自动提供了服务均衡负载的功能。如果我们将服务提供者的数量在提高为N个，测试结果一样，请求会自动轮询到每个服务端来处理。</p>
+
+<p><strong><a href="https://github.com/ityouknow/spring-cloud-examples">示例代码-github</a></strong></p>
+
+<p><strong><a href="https://gitee.com/ityouknow/spring-cloud-examples">示例代码-码云</a></strong></p>
+
+<hr />
+
+<p><strong>作者：纯洁的微笑</strong><br />
+<strong>出处：<a href="http://www.ityouknow.com/springcloud/2017/05/12/eureka-provider-constomer.html">http://www.ityouknow.com/</a></strong>    <br />
+<strong>版权归作者所有，转载请注明出处</strong></p>
+
+:ET

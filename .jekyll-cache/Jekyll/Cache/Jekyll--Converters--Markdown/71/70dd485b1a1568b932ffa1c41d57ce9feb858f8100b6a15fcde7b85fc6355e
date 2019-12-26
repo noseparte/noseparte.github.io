@@ -1,0 +1,183 @@
+I"�3<p>上篇文章<a href="http://www.itmind.net/docker/2018/03/22/docker-compose.html">Docker(四)：Docker 三剑客之 Docker Compose </a>介绍了 Docker Compose，这篇文章我们来了解 Docker Machine 。</p>
+
+<h2 id="docker-machine-介绍">Docker Machine 介绍</h2>
+
+<p>Docker Machine 是 Docker 官方编排（Orchestration）项目之一，负责在多种平台上快速安装 Docker 环境。</p>
+
+<p>Docker Machine 是一个工具，它允许你在虚拟宿主机上安装 Docker Engine ，并使用 docker-machine  命令管理这些宿主机。你可以使用 Machine 在你本地的 Mac 或 Windows box、公司网络、数据中心、或像 AWS 或 Digital Ocean 这样的云提供商上创建 Docker 宿主机。</p>
+
+<p>使用 docker-machine 命令，你可以启动、审查、停止和重新启动托管的宿主机、升级 Docker 客户端和守护程序、并配置 Docker 客户端与你的宿主机通信。</p>
+
+<h2 id="为什么要使用它">为什么要使用它？</h2>
+
+<p>Docker Machine 使你能够在各种 Linux 上配置多个远程 Docker 宿主机。
+此外，Machine 允许你在较早的 Mac 或 Windows 系统上运行 Docker，如上一主题所述。
+Docker Machine 有这两个广泛的用例。</p>
+
+<ul>
+  <li>我有一个较旧的桌面系统，并希望在 Mac 或 Windows 上运行 Docker</li>
+</ul>
+
+<p><img src="http://www.itmind.net/assets/images/2018/docker/machine-mac-win.png" alt="" /></p>
+
+<p>如果你主要在不符合新的 Docker for Mac 和 Docker for Windows 应用程序的旧 Mac 或 Windows 笔记本电脑或台式机上工作，则需要 Docker Machine 来在本地“运行Docker”（即Docker Engine）。在 Mac 或 Windows box 中使用 Docker Toolbox 安装程序安装 Docker Machine 将为 Docker Engine 配置一个本地的虚拟机，使你能够连接它、并运行 docker 命令。</p>
+
+<ul>
+  <li>我想在远程系统上配置 Docker 宿主机</li>
+</ul>
+
+<p><img src="http://www.itmind.net/assets/images/2018/docker/provision-use-case.png" alt="" /></p>
+
+<p>Docker Engine Linux 系统上原生地运行。如果你有一个 Linux 作为你的主系统，并且想要运行 docker 命令，所有你需要做的就是下载并安装 Docker Engine 。然而，如果你想要在网络上、云中甚至本地配置多个 Docker 宿主机有一个有效的方式，你需要 Docker Machine。</p>
+
+<p>无论你的主系统是 Mac、Windows 还是 Linux，你都可以在其上安装 Docker Machine，并使用 docker-machine 命令来配置和管理大量的 Docker 宿主机。它会自动创建宿主机、在其上安装 Docker Engine 、然后配置 docker 客户端。每个被管理的宿主机（“machine”）是 Docker 宿主机和配置好的客户端的结合。</p>
+
+<h2 id="docker-engine-和-docker-machine-有什么区别">Docker Engine 和 Docker Machine 有什么区别？</h2>
+
+<p>当人们说“Docker”时，他们通常是指 Docker Engine，它是一个客户端 - 服务器应用程序，由 Docker 守护进程、一个REST API指定与守护进程交互的接口、和一个命令行接口（CLI）与守护进程通信（通过封装REST API）。Docker Engine 从 CLI 中接受docker 命令，例如<code class="highlighter-rouge">docker run &lt;image&gt;</code>、<code class="highlighter-rouge">docker ps</code> 来列出正在运行的容器、<code class="highlighter-rouge">docker images</code>来列出镜像，等等。</p>
+
+<p><img src="http://www.itmind.net/assets/images/2018/docker/engine.png" alt="" /></p>
+
+<p>Docker Machine 是一个用于配置和管理你的宿主机（上面具有 Docker Engine 的主机）的工具。通常，你在你的本地系统上安装 Docker Machine。Docker Machine有自己的命令行客户端 docker-machine 和 Docker Engine 客户端 docker。你可以使用 Machine 在一个或多个虚拟系统上安装 Docker Engine。</p>
+
+<p>这些虚拟系统可以是本地的（就像你在 Mac 或 Windows 上使用 Machine 在 VirtualBox 中安装和运行 Docker Engine 一样）或远程的（就像你使用 Machine 在云提供商上 provision Dockerized 宿主机一样）。Dockerized 宿主机本身可以认为是，且有时就称为，被管理的“machines”。</p>
+
+<p><img src="http://www.itmind.net/assets/images/2018/docker/machine.png" alt="" /></p>
+
+<h2 id="安装和使用">安装和使用</h2>
+
+<p>Docker Machine 安装很简单</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-L</span> https://github.com/docker/machine/releases/download/v0.14.0/docker-machine-<span class="sb">`</span><span class="nb">uname</span> <span class="nt">-s</span><span class="sb">`</span>-<span class="sb">`</span><span class="nb">uname</span> <span class="nt">-m</span><span class="sb">`</span> <span class="o">&gt;</span>/tmp/docker-machine <span class="o">&amp;&amp;</span> <span class="se">\</span>
+<span class="nb">install</span> /tmp/docker-machine /usr/local/bin/docker-machine
+
+<span class="c">#完成后，查看版本信息。</span>
+docker-machine <span class="nt">-v</span>
+docker-machine version 0.14.0, build 89b8332
+</code></pre></div></div>
+
+<h3 id="创建一个-virtualbox">创建一个 VirtualBox</h3>
+
+<p>查看是否存在可用的主机</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span> docker-machine <span class="nb">ls
+</span>NAME   ACTIVE   DRIVER   STATE   URL   SWARM   DOCKER   ERRORS
+</code></pre></div></div>
+
+<p>创建一个主机:</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>docker-machine create <span class="nt">--driver</span> virtualbox default
+Running pre-create checks...
+<span class="o">(</span>default<span class="o">)</span> Default Boot2Docker ISO is out-of-date, downloading the latest release...
+<span class="o">(</span>default<span class="o">)</span> Latest release <span class="k">for </span>github.com/boot2docker/boot2docker is v17.12.1-ce
+<span class="o">(</span>default<span class="o">)</span> Downloading C:<span class="se">\U</span>sers<span class="se">\h</span>krt-neo<span class="se">\.</span>docker<span class="se">\m</span>achine<span class="se">\c</span>ache<span class="se">\b</span>oot2docker.iso from https://github.com/boot2docker/boot2docker/releases/download/v17.12.1-ce/boot2docker.iso...
+<span class="o">(</span>default<span class="o">)</span> 0%....10%....20%....30%....40%....50%....60%....70%....80%....90%....100%
+Creating machine...
+<span class="o">(</span>default<span class="o">)</span> Copying C:<span class="se">\U</span>sers<span class="se">\h</span>krt-neo<span class="se">\.</span>docker<span class="se">\m</span>achine<span class="se">\c</span>ache<span class="se">\b</span>oot2docker.iso to C:<span class="se">\U</span>sers<span class="se">\h</span>krt-neo<span class="se">\.</span>docker<span class="se">\m</span>achine<span class="se">\m</span>achines<span class="se">\d</span>efault<span class="se">\b</span>oot2docker.iso...
+<span class="o">(</span>default<span class="o">)</span> Creating VirtualBox VM...
+<span class="o">(</span>default<span class="o">)</span> Creating SSH key...
+<span class="o">(</span>default<span class="o">)</span> Starting the VM...
+<span class="o">(</span>default<span class="o">)</span> Check network to re-create <span class="k">if </span>needed...
+<span class="o">(</span>default<span class="o">)</span> Windows might ask <span class="k">for </span>the permission to configure a dhcp server. Sometimes, such confirmation window is minimized <span class="k">in </span>the taskbar.
+<span class="o">(</span>default<span class="o">)</span> Waiting <span class="k">for </span>an IP...
+Waiting <span class="k">for </span>machine to be running, this may take a few minutes...
+Detecting operating system of created instance...
+Waiting <span class="k">for </span>SSH to be available...
+Detecting the provisioner...
+Provisioning with boot2docker...
+Copying certs to the <span class="nb">local </span>machine directory...
+Copying certs to the remote machine...
+Setting Docker configuration on the remote daemon...
+...
+</code></pre></div></div>
+
+<p>这个命令会下载 boot2docker，基于 boot2docker 创建一个虚拟主机。boot2docker 是一个轻量级的 linux 发行版，基于专门为运行 docker 容器而设计的 Tiny Core Linux 系统，完全从 RAM 运行，45Mb左右，启动时间约5s。</p>
+
+<p>再次查看服务列表</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker-machine <span class="nb">ls
+</span>NAME      ACTIVE   DRIVER       STATE     URL                         SWARM   DOCKER        ERRORS
+default   <span class="k">*</span>        virtualbox   Running   tcp://192.168.99.100:2376           v17.12.1-ce
+</code></pre></div></div>
+
+<p>发现已经存在一个虚拟主机</p>
+
+<p>创建主机成功后，可以通过 env 命令来让后续操作对象都是目标主机。</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>docker-machine <span class="nb">env </span>default
+<span class="nb">export </span><span class="nv">DOCKER_TLS_VERIFY</span><span class="o">=</span><span class="s2">"1"</span>
+<span class="nb">export </span><span class="nv">DOCKER_HOST</span><span class="o">=</span><span class="s2">"tcp://192.168.99.100:2376"</span>
+<span class="nb">export </span><span class="nv">DOCKER_CERT_PATH</span><span class="o">=</span><span class="s2">"C:</span><span class="se">\U</span><span class="s2">sers</span><span class="se">\h</span><span class="s2">krt-neo</span><span class="se">\.</span><span class="s2">docker</span><span class="se">\m</span><span class="s2">achine</span><span class="se">\m</span><span class="s2">achines</span><span class="se">\d</span><span class="s2">efault"</span>
+<span class="nb">export </span><span class="nv">DOCKER_MACHINE_NAME</span><span class="o">=</span><span class="s2">"default"</span>
+<span class="nb">export </span><span class="nv">COMPOSE_CONVERT_WINDOWS_PATHS</span><span class="o">=</span><span class="s2">"true"</span>
+<span class="c"># Run this command to configure your shell:</span>
+<span class="c"># eval $("D:\Program Files\Docker Toolbox\docker-machine.exe" env default)</span>
+</code></pre></div></div>
+
+<p>相当于配置了一个环境变量 default，后续根据提示在命令行输入命令之后就可以操作 default 主机。</p>
+
+<p>可以通过 SSH 登录到主机</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>docker-machine ssh default
+
+docker@default:~<span class="nv">$ </span>docker <span class="nt">--version</span>
+Docker version 17.12.1-ce, build 7390fc6
+</code></pre></div></div>
+
+<p>连接到主机之后你就可以在其上使用 Docker 了，退出虚拟机使用命令：<code class="highlighter-rouge">exit </code></p>
+
+<h3 id="docker-machine-常用命令">Docker Machine 常用命令</h3>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>//创建虚拟机
+docker-machine create <span class="o">[</span>OPTIONS] <span class="o">[</span>arg...]
+
+//移除虚拟机
+docker-machine <span class="nb">rm</span> <span class="o">[</span>OPTIONS] <span class="o">[</span>arg...]
+
+//登录虚拟机
+docker-machine ssh <span class="o">[</span>arg...]
+
+//docker客户端配置环境变量
+docker-machine <span class="nb">env</span> <span class="o">[</span>OPTIONS] <span class="o">[</span>arg...]
+
+//检查机子信息
+docker-machine inspect
+
+//查看虚拟机列表
+docker-machine <span class="nb">ls</span> <span class="o">[</span>OPTIONS] <span class="o">[</span>arg...]
+
+//查看虚拟机状态
+docker-machine status <span class="o">[</span>arg...]  //一个虚拟机名称
+
+//启动虚拟机
+docker-machine start <span class="o">[</span>arg...]  //一个或多个虚拟机名称
+
+//停止虚拟机
+docker-machine stop <span class="o">[</span>arg...]  //一个或多个虚拟机名称
+
+//重启虚拟机
+docker-machine restart <span class="o">[</span>arg...]  //一个或多个虚拟机名称
+</code></pre></div></div>
+
+<blockquote>
+  <p>更多参数请使用 docker-machine  –help 命令查看。</p>
+</blockquote>
+
+<h2 id="总结">总结</h2>
+
+<p>Docker Machine 最主要有两个作用：</p>
+
+<ul>
+  <li>使用 Docker Machine 方便在不同的环境中使用 Docker ，比如：Win/Mac</li>
+  <li>使用 Docker Machine 方便在云环境下批量部署 Docker环境，比如：私有云，公有云批量安装Docker环境</li>
+</ul>
+
+<blockquote>
+  <p>virtualbox 安装很麻烦，我使用的虚拟机和云主机来做实验均没有安装成功，最后使用的是 Docker 官方提供的 Windows 安装包来完成的 virtualbox 相关操作。附 virtualbox 官网：https://www.virtualbox.org/wiki/Downloads</p>
+</blockquote>
+
+<h2 id="参考">参考</h2>
+
+<p><a href="https://docs.docker.com/machine/overview/">Docker Machine Overview</a><br />
+<a href="http://blog.csdn.net/cnleocc/article/details/56513004">docker-machine常用命令</a></p>
+:ET

@@ -1,0 +1,30 @@
+I"�<p>记录工程中的各种异常</p>
+
+<h1 id="how-to-fix-504-gateway-timeout-using-nginx">How to Fix 504 Gateway Timeout using Nginx</h1>
+
+<p>生产销售系统出现 504 Gateway Timeout 异常，其实就是服务器响应太慢导致nginx带来超时，先不说服务端慢的优化问题；只是单纯的解决504。到网上发现了一篇文章fix it</p>
+
+<p>Add these variables to nginx.conf file:</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  proxy_connect_timeout       600;
+  proxy_send_timeout          600;
+  proxy_read_timeout          600;
+  send_timeout                600;
+</code></pre></div></div>
+
+<p>Then restart nginx:</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>service nginx reload
+</code></pre></div></div>
+
+<p><a href="https://www.scalescale.com/tips/nginx/504-gateway-time-out-using-nginx">原文链接</a></p>
+
+<h2 id="nginx-returns-empty-response-on-long-url---failed-neterr_empty_response">Nginx returns empty response on long URL - (failed) net::ERR_EMPTY_RESPONSE</h2>
+
+<p>nginx 返回的数据量大+反应时间过程会导致这个问题。</p>
+
+<h2 id="查询特别耗时高达6分钟">查询特别耗时，高达6分钟</h2>
+
+<p>最后查明，开发人员在for循环中查询sql导致数据库压力巨大，查询速度非常慢，将sql提取出统一查询，问题解决！</p>
+
+:ET

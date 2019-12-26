@@ -1,0 +1,199 @@
+I"I<p>说起多数据源，一般都来解决那些问题呢，主从模式或者业务比较复杂需要连接不同的分库来支持业务。我们项目是后者的模式，网上找了很多，大都是根据jpa来做多数据源解决方案，要不就是老的spring多数据源解决方案，还有的是利用aop动态切换，感觉有点小复杂，其实我只是想找一个简单的多数据支持而已，折腾了两个小时整理出来，供大家参考。</p>
+
+<blockquote>
+  <p>废话不多说直接上代码吧</p>
+</blockquote>
+
+<h2 id="配置文件">配置文件</h2>
+
+<p>pom包就不贴了比较简单该依赖的就依赖，主要是数据库这边的配置：</p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">mybatis.config-locations</span><span class="p">=</span><span class="s">classpath:mybatis/mybatis-config.xml</span>
+
+<span class="py">spring.datasource.test1.driverClassName</span> <span class="p">=</span> <span class="s">com.mysql.jdbc.Driver</span>
+<span class="py">spring.datasource.test1.url</span> <span class="p">=</span> <span class="s">jdbc:mysql://localhost:3306/test1?useUnicode=true&amp;characterEncoding=utf-8</span>
+<span class="py">spring.datasource.test1.username</span> <span class="p">=</span> <span class="s">root</span>
+<span class="py">spring.datasource.test1.password</span> <span class="p">=</span> <span class="s">root</span>
+
+<span class="py">spring.datasource.test2.driverClassName</span> <span class="p">=</span> <span class="s">com.mysql.jdbc.Driver</span>
+<span class="py">spring.datasource.test2.url</span> <span class="p">=</span> <span class="s">jdbc:mysql://localhost:3306/test2?useUnicode=true&amp;characterEncoding=utf-8</span>
+<span class="py">spring.datasource.test2.username</span> <span class="p">=</span> <span class="s">root</span>
+<span class="py">spring.datasource.test2.password</span> <span class="p">=</span> <span class="s">root</span>
+</code></pre></div></div>
+
+<p>一个test1库和一个test2库，其中test1位主库，在使用的过程中必须指定主库，不然会报错。</p>
+
+<h2 id="数据源配置">数据源配置</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Configuration</span>
+<span class="nd">@MapperScan</span><span class="o">(</span><span class="n">basePackages</span> <span class="o">=</span> <span class="s">"com.neo.mapper.test1"</span><span class="o">,</span> <span class="n">sqlSessionTemplateRef</span>  <span class="o">=</span> <span class="s">"test1SqlSessionTemplate"</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">DataSource1Config</span> <span class="o">{</span>
+
+    <span class="nd">@Bean</span><span class="o">(</span><span class="n">name</span> <span class="o">=</span> <span class="s">"test1DataSource"</span><span class="o">)</span>
+    <span class="nd">@ConfigurationProperties</span><span class="o">(</span><span class="n">prefix</span> <span class="o">=</span> <span class="s">"spring.datasource.test1"</span><span class="o">)</span>
+    <span class="nd">@Primary</span>
+    <span class="kd">public</span> <span class="nc">DataSource</span> <span class="nf">testDataSource</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="nc">DataSourceBuilder</span><span class="o">.</span><span class="na">create</span><span class="o">().</span><span class="na">build</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Bean</span><span class="o">(</span><span class="n">name</span> <span class="o">=</span> <span class="s">"test1SqlSessionFactory"</span><span class="o">)</span>
+    <span class="nd">@Primary</span>
+    <span class="kd">public</span> <span class="nc">SqlSessionFactory</span> <span class="nf">testSqlSessionFactory</span><span class="o">(</span><span class="nd">@Qualifier</span><span class="o">(</span><span class="s">"test1DataSource"</span><span class="o">)</span> <span class="nc">DataSource</span> <span class="n">dataSource</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="nc">SqlSessionFactoryBean</span> <span class="n">bean</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SqlSessionFactoryBean</span><span class="o">();</span>
+        <span class="n">bean</span><span class="o">.</span><span class="na">setDataSource</span><span class="o">(</span><span class="n">dataSource</span><span class="o">);</span>
+        <span class="n">bean</span><span class="o">.</span><span class="na">setMapperLocations</span><span class="o">(</span><span class="k">new</span> <span class="nc">PathMatchingResourcePatternResolver</span><span class="o">().</span><span class="na">getResources</span><span class="o">(</span><span class="s">"classpath:mybatis/mapper/test1/*.xml"</span><span class="o">));</span>
+        <span class="k">return</span> <span class="n">bean</span><span class="o">.</span><span class="na">getObject</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Bean</span><span class="o">(</span><span class="n">name</span> <span class="o">=</span> <span class="s">"test1TransactionManager"</span><span class="o">)</span>
+    <span class="nd">@Primary</span>
+    <span class="kd">public</span> <span class="nc">DataSourceTransactionManager</span> <span class="nf">testTransactionManager</span><span class="o">(</span><span class="nd">@Qualifier</span><span class="o">(</span><span class="s">"test1DataSource"</span><span class="o">)</span> <span class="nc">DataSource</span> <span class="n">dataSource</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">DataSourceTransactionManager</span><span class="o">(</span><span class="n">dataSource</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Bean</span><span class="o">(</span><span class="n">name</span> <span class="o">=</span> <span class="s">"test1SqlSessionTemplate"</span><span class="o">)</span>
+    <span class="nd">@Primary</span>
+    <span class="kd">public</span> <span class="nc">SqlSessionTemplate</span> <span class="nf">testSqlSessionTemplate</span><span class="o">(</span><span class="nd">@Qualifier</span><span class="o">(</span><span class="s">"test1SqlSessionFactory"</span><span class="o">)</span> <span class="nc">SqlSessionFactory</span> <span class="n">sqlSessionFactory</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">SqlSessionTemplate</span><span class="o">(</span><span class="n">sqlSessionFactory</span><span class="o">);</span>
+    <span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>最关键的地方就是这块了，一层一层注入,首先创建DataSource，然后创建SqlSessionFactory再创建事务，最后包装到SqlSessionTemplate中。其中需要指定分库的mapper文件地址，以及分库dao层代码</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@MapperScan</span><span class="o">(</span><span class="n">basePackages</span> <span class="o">=</span> <span class="s">"com.neo.mapper.test1"</span><span class="o">,</span> <span class="n">sqlSessionTemplateRef</span>  <span class="o">=</span> <span class="s">"test1SqlSessionTemplate"</span><span class="o">)</span>
+</code></pre></div></div>
+<p>这块的注解就是指明了扫描dao层，并且给dao层注入指定的SqlSessionTemplate。所有<code class="highlighter-rouge">@Bean</code>都需要按照命名指定正确。</p>
+
+<h2 id="dao层和xml层">dao层和xml层</h2>
+
+<p>dao层和xml需要按照库来分在不同的目录，比如：test1库dao层在com.neo.mapper.test1包下，test2库在com.neo.mapper.test1</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">User1Mapper</span> <span class="o">{</span>
+	
+	<span class="nc">List</span><span class="o">&lt;</span><span class="nc">UserEntity</span><span class="o">&gt;</span> <span class="nf">getAll</span><span class="o">();</span>
+	
+	<span class="nc">UserEntity</span> <span class="nf">getOne</span><span class="o">(</span><span class="nc">Long</span> <span class="n">id</span><span class="o">);</span>
+
+	<span class="kt">void</span> <span class="nf">insert</span><span class="o">(</span><span class="nc">UserEntity</span> <span class="n">user</span><span class="o">);</span>
+
+	<span class="kt">void</span> <span class="nf">update</span><span class="o">(</span><span class="nc">UserEntity</span> <span class="n">user</span><span class="o">);</span>
+
+	<span class="kt">void</span> <span class="nf">delete</span><span class="o">(</span><span class="nc">Long</span> <span class="n">id</span><span class="o">);</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>xml层</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?xml version="1.0" encoding="UTF-8" ?&gt;</span>
+<span class="cp">&lt;!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" &gt;</span>
+<span class="nt">&lt;mapper</span> <span class="na">namespace=</span><span class="s">"com.neo.mapper.test1.User1Mapper"</span> <span class="nt">&gt;</span>
+    <span class="nt">&lt;resultMap</span> <span class="na">id=</span><span class="s">"BaseResultMap"</span> <span class="na">type=</span><span class="s">"com.neo.entity.UserEntity"</span> <span class="nt">&gt;</span>
+        <span class="nt">&lt;id</span> <span class="na">column=</span><span class="s">"id"</span> <span class="na">property=</span><span class="s">"id"</span> <span class="na">jdbcType=</span><span class="s">"BIGINT"</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;result</span> <span class="na">column=</span><span class="s">"userName"</span> <span class="na">property=</span><span class="s">"userName"</span> <span class="na">jdbcType=</span><span class="s">"VARCHAR"</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;result</span> <span class="na">column=</span><span class="s">"passWord"</span> <span class="na">property=</span><span class="s">"passWord"</span> <span class="na">jdbcType=</span><span class="s">"VARCHAR"</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;result</span> <span class="na">column=</span><span class="s">"user_sex"</span> <span class="na">property=</span><span class="s">"userSex"</span> <span class="na">javaType=</span><span class="s">"com.neo.enums.UserSexEnum"</span><span class="nt">/&gt;</span>
+        <span class="nt">&lt;result</span> <span class="na">column=</span><span class="s">"nick_name"</span> <span class="na">property=</span><span class="s">"nickName"</span> <span class="na">jdbcType=</span><span class="s">"VARCHAR"</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/resultMap&gt;</span>
+    
+    <span class="nt">&lt;sql</span> <span class="na">id=</span><span class="s">"Base_Column_List"</span> <span class="nt">&gt;</span>
+        id, userName, passWord, user_sex, nick_name
+    <span class="nt">&lt;/sql&gt;</span>
+
+    <span class="nt">&lt;select</span> <span class="na">id=</span><span class="s">"getAll"</span> <span class="na">resultMap=</span><span class="s">"BaseResultMap"</span>  <span class="nt">&gt;</span>
+       SELECT 
+       <span class="nt">&lt;include</span> <span class="na">refid=</span><span class="s">"Base_Column_List"</span> <span class="nt">/&gt;</span>
+	   FROM users
+    <span class="nt">&lt;/select&gt;</span>
+
+    <span class="nt">&lt;select</span> <span class="na">id=</span><span class="s">"getOne"</span> <span class="na">parameterType=</span><span class="s">"java.lang.Long"</span> <span class="na">resultMap=</span><span class="s">"BaseResultMap"</span> <span class="nt">&gt;</span>
+        SELECT 
+       <span class="nt">&lt;include</span> <span class="na">refid=</span><span class="s">"Base_Column_List"</span> <span class="nt">/&gt;</span>
+	   FROM users
+	   WHERE id = #{id}
+    <span class="nt">&lt;/select&gt;</span>
+
+    <span class="nt">&lt;insert</span> <span class="na">id=</span><span class="s">"insert"</span> <span class="na">parameterType=</span><span class="s">"com.neo.entity.UserEntity"</span> <span class="nt">&gt;</span>
+       INSERT INTO 
+       		users
+       		(userName,passWord,user_sex) 
+       	VALUES
+       		(#{userName}, #{passWord}, #{userSex})
+    <span class="nt">&lt;/insert&gt;</span>
+    
+    <span class="nt">&lt;update</span> <span class="na">id=</span><span class="s">"update"</span> <span class="na">parameterType=</span><span class="s">"com.neo.entity.UserEntity"</span> <span class="nt">&gt;</span>
+       UPDATE 
+       		users 
+       SET 
+       	<span class="nt">&lt;if</span> <span class="na">test=</span><span class="s">"userName != null"</span><span class="nt">&gt;</span>userName = #{userName},<span class="nt">&lt;/if&gt;</span>
+       	<span class="nt">&lt;if</span> <span class="na">test=</span><span class="s">"passWord != null"</span><span class="nt">&gt;</span>passWord = #{passWord},<span class="nt">&lt;/if&gt;</span>
+       	nick_name = #{nickName}
+       WHERE 
+       		id = #{id}
+    <span class="nt">&lt;/update&gt;</span>
+    
+    <span class="nt">&lt;delete</span> <span class="na">id=</span><span class="s">"delete"</span> <span class="na">parameterType=</span><span class="s">"java.lang.Long"</span> <span class="nt">&gt;</span>
+       DELETE FROM
+       		 users 
+       WHERE 
+       		 id =#{id}
+    <span class="nt">&lt;/delete&gt;</span>
+
+<span class="nt">&lt;/mapper&gt;</span>
+</code></pre></div></div>
+
+<h2 id="测试">测试</h2>
+
+<p>测试可以使用SpringBootTest,也可以放到Controller中，这里只贴Controller层的使用</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@RestController</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">UserController</span> <span class="o">{</span>
+
+    <span class="nd">@Autowired</span>
+    <span class="kd">private</span> <span class="nc">User1Mapper</span> <span class="n">user1Mapper</span><span class="o">;</span>
+
+	<span class="nd">@Autowired</span>
+	<span class="kd">private</span> <span class="nc">User2Mapper</span> <span class="n">user2Mapper</span><span class="o">;</span>
+	
+	<span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/getUsers"</span><span class="o">)</span>
+	<span class="kd">public</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">UserEntity</span><span class="o">&gt;</span> <span class="nf">getUsers</span><span class="o">()</span> <span class="o">{</span>
+		<span class="nc">List</span><span class="o">&lt;</span><span class="nc">UserEntity</span><span class="o">&gt;</span> <span class="n">users</span><span class="o">=</span><span class="n">user1Mapper</span><span class="o">.</span><span class="na">getAll</span><span class="o">();</span>
+		<span class="k">return</span> <span class="n">users</span><span class="o">;</span>
+	<span class="o">}</span>
+	
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/getUser"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">UserEntity</span> <span class="nf">getUser</span><span class="o">(</span><span class="nc">Long</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+    	<span class="nc">UserEntity</span> <span class="n">user</span><span class="o">=</span><span class="n">user2Mapper</span><span class="o">.</span><span class="na">getOne</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">user</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/add"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">save</span><span class="o">(</span><span class="nc">UserEntity</span> <span class="n">user</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">user2Mapper</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">user</span><span class="o">);</span>
+    <span class="o">}</span>
+    
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="n">value</span><span class="o">=</span><span class="s">"update"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">update</span><span class="o">(</span><span class="nc">UserEntity</span> <span class="n">user</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">user2Mapper</span><span class="o">.</span><span class="na">update</span><span class="o">(</span><span class="n">user</span><span class="o">);</span>
+    <span class="o">}</span>
+    
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="n">value</span><span class="o">=</span><span class="s">"/delete/{id}"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">delete</span><span class="o">(</span><span class="nd">@PathVariable</span><span class="o">(</span><span class="s">"id"</span><span class="o">)</span> <span class="nc">Long</span> <span class="n">id</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">user1Mapper</span><span class="o">.</span><span class="na">delete</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+    <span class="o">}</span>
+    
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p><strong><a href="https://github.com/ityouknow/spring-boot-examples">示例代码-github</a></strong></p>
+
+<p><strong><a href="https://gitee.com/ityouknow/spring-boot-examples">示例代码-码云</a></strong></p>
+
+<hr />
+
+<p><strong>作者：纯洁的微笑</strong><br />
+<strong>出处：<a href="http://www.ityouknow.com">www.ityouknow.com</a></strong>
+<strong>版权所有，欢迎保留原文链接进行转载：)</strong></p>
+:ET

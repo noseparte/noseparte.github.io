@@ -1,0 +1,277 @@
+I"�<p>定时任务是互联网行业里最常用的服务之一，本文给大家介绍定时任务在我司的发展历程。</p>
+
+<p>linux系统中一般使用crontab命令来实现，在Java世界里，使用最广泛的就是quartz了。我司使用quartz就已经升级了三代，每一代在上一代系统之上有所优化，写这篇文章一方面介绍一下quartz的使用，另一方面可以根据此项目的变迁反应出我司平台架构升级的一个缩影。</p>
+
+<p>定时任务的使用场景很多，以我们平台来讲：计息，派息、对账等等。</p>
+
+<h2 id="quartz-介绍">quartz 介绍</h2>
+
+<p>Quartz是个开源的作业调度框架，为在Java应用程序中进行作业调度提供了简单却强大的机制。Quartz允许开发人员根据时间间隔（或天）来调度作业。它实现了作业和触发器的多对多关系，还能把多个作业与不同的触发器关联。Quartz可以集成几乎任何的java应用程序—从小的单片机系统到大型的电子商务系统。Quartz可以执行上千上万的任务调度。</p>
+
+<p>Quartz核心的概念：scheduler任务调度、Job任务、JobDetail任务细节、Trigger触发器</p>
+
+<ul>
+  <li>Scheduler：调度器，调度器接受一组JobDetail+Trigger即可安排一个任务，其中一个JobDetail可以关联多个Trigger</li>
+  <li>Job：Job是任务执行的流程，是一个类</li>
+  <li>JobDetail：JobDetail是Job是实例，是一个对象，包含了该实例的执行计划和所需要的数据</li>
+  <li>Trigger：Trigger是定时器，决定任务何时执行</li>
+</ul>
+
+<p>使用Quartz调度系统的思路就是，首先写一个具体的任务（job），配置任务的触发时间（Trigger），Scheduler很根据JobDetail+Trigger安排去执行此任务。</p>
+
+<p>Quartz 定时器的时间设置</p>
+
+<p>时间的配置如下：<value>0 30 16 * * ?</value></p>
+
+<p>时间大小由小到大排列，从秒开始，顺序为 秒，分，时，天，月，年 *为任意 ？为无限制。由此上面所配置的内容就是，在每天的16点30分启动buildSendHtml() 方法</p>
+
+<p>具体时间设定可参考 ：</p>
+
+<p>“0/10 * * * * ?” 每10秒触发<br />
+“0 0 12 * * ?” 每天中午12点触发 
+“0 * 14 * * ?” 在每天下午2点到下午2:59期间的每1分钟触发 <br />
+“0 10,44 14 ? 3 WED” 每年三月的星期三的下午2:10和2:44触发 <br />
+“0 15 10 ? * MON-FRI” 周一至周五的上午10:15触发 <br />
+“0 0 06,18 * * ?”  在每天上午6点和下午6点触发</p>
+
+<h2 id="第一代定时任务系统">第一代定时任务系统</h2>
+
+<p>第一代定时任务系统使用的很简单，全部按照当时spring推荐的配置方式来进行，开发于2014年初。</p>
+
+<p>首先在配置线程池</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;bean</span> <span class="na">id=</span><span class="s">"executor"</span> <span class="na">class=</span><span class="s">"org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor"</span><span class="nt">&gt;</span>
+ 	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"corePoolSize"</span> <span class="na">value=</span><span class="s">"50"</span> <span class="nt">/&gt;</span>
+ 	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"maxPoolSize"</span> <span class="na">value=</span><span class="s">"100"</span> <span class="nt">/&gt;</span>
+ 	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"queueCapacity"</span> <span class="na">value=</span><span class="s">"500"</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/bean&gt;</span>
+</code></pre></div></div>
+
+<p>配置定时任务工厂和任务基类</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;bean</span> <span class="na">id=</span><span class="s">"timerFactory"</span> <span class="na">class=</span><span class="s">"com.zx.timer.TimerFactory"</span> <span class="nt">/&gt;</span>
+
+<span class="nt">&lt;bean</span> <span class="na">id=</span><span class="s">"baseTask"</span> <span class="na">class=</span><span class="s">"com.zx.timer.core.BaseTask"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"machineId"</span> <span class="na">value=</span><span class="s">"${machine.id}"</span><span class="nt">/&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"recordErrorDetail"</span> <span class="na">value=</span><span class="s">"${is.record.errordetail}"</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/bean&gt;</span>
+</code></pre></div></div>
+
+<ul>
+  <li>machineId：机器编码</li>
+  <li>recordErrorDetail：是否记录详细日志</li>
+</ul>
+
+<p>通过timerFactory 来获取具体的任务和触发器</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">TimerFactory</span> <span class="kd">implements</span> <span class="nc">BeanFactoryAware</span> <span class="o">{</span>
+
+	<span class="kd">private</span> <span class="nc">BeanFactory</span> <span class="n">beanFactory</span><span class="o">;</span>
+
+	<span class="kd">public</span> <span class="nc">Object</span> <span class="nf">getTask</span><span class="o">(</span><span class="nc">String</span> <span class="n">taskCode</span><span class="o">)</span> <span class="o">{</span>
+		<span class="k">return</span> <span class="n">beanFactory</span><span class="o">.</span><span class="na">getBean</span><span class="o">(</span><span class="n">taskCode</span><span class="o">+</span><span class="s">"Task"</span><span class="o">);</span>
+	<span class="o">}</span>
+	
+	<span class="kd">public</span> <span class="nc">Object</span> <span class="nf">getTrigger</span><span class="o">(</span><span class="nc">String</span> <span class="n">taskCode</span><span class="o">)</span> <span class="o">{</span>
+		<span class="k">return</span> <span class="n">beanFactory</span><span class="o">.</span><span class="na">getBean</span><span class="o">(</span><span class="n">taskCode</span><span class="o">+</span><span class="s">"Trigger"</span><span class="o">);</span>
+	<span class="o">}</span>
+
+	<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setBeanFactory</span><span class="o">(</span><span class="nc">BeanFactory</span> <span class="n">beanFactory</span><span class="o">)</span> <span class="o">{</span>
+		<span class="k">this</span><span class="o">.</span><span class="na">beanFactory</span> <span class="o">=</span> <span class="n">beanFactory</span><span class="o">;</span>
+	<span class="o">}</span>
+
+	<span class="kd">public</span> <span class="nc">BeanFactory</span> <span class="nf">getBeanFactory</span><span class="o">()</span> <span class="o">{</span>
+		<span class="k">return</span> <span class="n">beanFactory</span><span class="o">;</span>
+	<span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>baseTask集成了task，在里面做了一些基础的业务，比如定时任务开始执行的时候记录定时任务的开始执行时间，定时任务结束的时候记录执行的结果等。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">Task</span> <span class="o">{</span>
+	<span class="kd">public</span> <span class="kt">void</span> <span class="nf">executeTask</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>配置具体的定时任务。以重发短信邮件的定时任务为例</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;bean</span> <span class="na">id=</span><span class="s">"resendSmsAndEmailTask"</span> <span class="na">class=</span><span class="s">"com.zx.timer.core.tasks.ResendSmsAndEmailTask"</span>
+		<span class="na">parent=</span><span class="s">"baseTask"</span><span class="nt">&gt;</span>
+<span class="nt">&lt;/bean&gt;</span>
+
+<span class="nt">&lt;bean</span> <span class="na">id=</span><span class="s">"resendSmsAndEmailJob"</span> <span class="na">class=</span><span class="s">"org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"targetObject"</span> <span class="na">ref=</span><span class="s">"resendSmsAndEmailTask"</span> <span class="nt">/&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"targetMethod"</span> <span class="na">value=</span><span class="s">"executeTask"</span> <span class="nt">/&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"concurrent"</span> <span class="na">value=</span><span class="s">"false"</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/bean&gt;</span>
+
+<span class="nt">&lt;bean</span> <span class="na">id=</span><span class="s">"resendSmsAndEmailTrigger"</span> <span class="na">class=</span><span class="s">"org.springframework.scheduling.quartz.CronTriggerBean"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"jobDetail"</span> <span class="na">ref=</span><span class="s">"resendSmsAndEmailJob"</span> <span class="nt">/&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"cronExpression"</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;value&gt;</span>0 0 0 * * ?<span class="nt">&lt;/value&gt;</span>
+	<span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/bean&gt;</span>
+</code></pre></div></div>
+
+<ul>
+  <li>resendSmsAndEmailTask：具体的定时任务类</li>
+  <li>resendSmsAndEmailJob：包装成具体的Job</li>
+  <li>resendSmsAndEmailTrigger：设置具体执行的时间，包装成Trigger</li>
+</ul>
+
+<p>具体的task类,删掉了部分业务代码：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ResendSmsAndEmailTask</span> <span class="kd">extends</span> <span class="nc">BaseTask</span><span class="o">{</span>
+	<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">TASK_CODE</span> <span class="o">=</span> <span class="s">"resendSmsAndEmail"</span><span class="o">;</span>
+	<span class="nc">AtomicInteger</span> <span class="n">ai</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">(</span><span class="mi">0</span><span class="o">);</span>
+	
+	<span class="kd">public</span> <span class="kt">void</span> <span class="nf">execute</span><span class="o">(){</span>
+		<span class="k">try</span> <span class="o">{</span>
+			<span class="n">ai</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">(</span><span class="mi">0</span><span class="o">);</span>
+			<span class="c1">// todo</span>
+		<span class="o">}</span><span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+			<span class="nc">String</span> <span class="n">exception</span> <span class="o">=</span> <span class="nc">ExceptionUtils</span><span class="o">.</span><span class="na">getStackTrace</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+			<span class="n">logger</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"stat error with exception[{}]."</span><span class="o">,</span> <span class="n">exception</span><span class="o">);</span>
+			<span class="k">this</span><span class="o">.</span><span class="na">recordTaskErrorDetail</span><span class="o">(</span><span class="k">this</span><span class="o">.</span><span class="na">taskRecordId</span><span class="o">,</span> <span class="s">"ResendSmsAndEmailTask-"</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">(),</span> <span class="n">exception</span><span class="o">);</span>
+		<span class="o">}</span><span class="k">finally</span><span class="o">{</span>
+			<span class="k">this</span><span class="o">.</span><span class="na">modifyTaskRecord</span><span class="o">(</span><span class="n">ai</span><span class="o">.</span><span class="na">get</span><span class="o">(),</span> <span class="n">taskRecordId</span><span class="o">);</span>
+		<span class="o">}</span>
+	<span class="o">}</span>
+	
+	<span class="kd">public</span> <span class="nc">String</span> <span class="nf">getTaskNo</span><span class="o">()</span> <span class="o">{</span>
+		<span class="k">return</span> <span class="no">TASK_CODE</span><span class="o">;</span>
+	<span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>最后配置scheduler任务调度</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;bean</span> <span class="na">id=</span><span class="s">"scheduler"</span> <span class="na">class=</span><span class="s">"org.springframework.scheduling.quartz.SchedulerFactoryBean"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"triggers"</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;list&gt;</span>
+			<span class="nt">&lt;ref</span> <span class="na">bean=</span><span class="s">"resendSmsAndEmailTrigger"</span> <span class="nt">/&gt;</span>
+		<span class="nt">&lt;/list&gt;</span>
+	<span class="nt">&lt;/property&gt;</span>
+	<span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">"taskExecutor"</span> <span class="na">ref=</span><span class="s">"executor"</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/bean&gt;</span>
+<span class="nt">&lt;bean</span> <span class="na">class=</span><span class="s">"com.zx.timer.core.scheduler.DynamicJobAssembler"</span> <span class="na">init-method=</span><span class="s">"init"</span> <span class="na">scope=</span><span class="s">"singleton"</span><span class="nt">/&gt;</span>
+</code></pre></div></div>
+
+<p>DynamicJobAssembler类代码：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">DynamicJobAssembler</span> <span class="o">{</span>
+
+	<span class="kd">private</span> <span class="kd">static</span> <span class="nc">Logger</span> <span class="n">logger</span> <span class="o">=</span> <span class="nc">LoggerFactory</span><span class="o">.</span><span class="na">getLogger</span><span class="o">(</span><span class="nc">DynamicJobAssembler</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+
+	<span class="nd">@Resource</span>
+	<span class="nc">Scheduler</span> <span class="n">scheduler</span><span class="o">;</span>
+
+	<span class="nd">@Resource</span>
+	<span class="nc">TimerFactory</span> <span class="n">timerFactory</span><span class="o">;</span>
+
+	<span class="nd">@Resource</span>
+	<span class="nc">TaskDao</span> <span class="n">taskDao</span><span class="o">;</span>
+
+	<span class="kd">public</span> <span class="kt">void</span> <span class="nf">init</span><span class="o">()</span> <span class="o">{</span>
+		<span class="n">logger</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"start to assemble task from db."</span><span class="o">);</span>
+		<span class="nc">List</span><span class="o">&lt;</span><span class="nc">TaskEntity</span><span class="o">&gt;</span> <span class="n">tasks</span> <span class="o">=</span> <span class="k">this</span><span class="o">.</span><span class="na">taskDao</span><span class="o">.</span><span class="na">getAllTask</span><span class="o">();</span>
+		<span class="k">if</span> <span class="o">(</span><span class="n">tasks</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="n">tasks</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+			<span class="k">return</span><span class="o">;</span>
+		<span class="o">}</span>
+
+		<span class="nc">Map</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">,</span> <span class="nc">String</span><span class="o">&gt;</span> <span class="n">jobNameMap</span> <span class="o">=</span> <span class="k">this</span><span class="o">.</span><span class="na">getAllJobNames</span><span class="o">();</span>
+		<span class="k">for</span> <span class="o">(</span><span class="nc">TaskEntity</span> <span class="n">task</span> <span class="o">:</span> <span class="n">tasks</span><span class="o">)</span> <span class="o">{</span>
+			<span class="n">logger</span><span class="o">.</span><span class="na">debug</span><span class="o">(</span><span class="n">task</span><span class="o">.</span><span class="na">toString</span><span class="o">());</span>
+			<span class="nc">CronTriggerBean</span> <span class="n">taskTrigger</span> <span class="o">=</span> <span class="o">(</span><span class="nc">CronTriggerBean</span><span class="o">)</span> <span class="n">timerFactory</span><span class="o">.</span><span class="na">getTrigger</span><span class="o">(</span><span class="n">task</span><span class="o">.</span><span class="na">getTaskNo</span><span class="o">());</span>
+			<span class="k">if</span> <span class="o">(</span><span class="n">taskTrigger</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+				<span class="k">if</span> <span class="o">(!</span><span class="n">task</span><span class="o">.</span><span class="na">getSchedulerRule</span><span class="o">().</span><span class="na">equals</span><span class="o">(</span><span class="n">taskTrigger</span><span class="o">.</span><span class="na">getCronExpression</span><span class="o">()))</span> <span class="o">{</span>
+					<span class="k">try</span> <span class="o">{</span>
+						<span class="n">taskTrigger</span><span class="o">.</span><span class="na">setCronExpression</span><span class="o">(</span><span class="n">task</span><span class="o">.</span><span class="na">getSchedulerRule</span><span class="o">());</span>
+					<span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ParseException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+						<span class="n">logger</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"db task's cronExpression parse error:{}"</span><span class="o">,</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+					<span class="o">}</span>
+					<span class="k">try</span> <span class="o">{</span>
+						<span class="n">logger</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"rescheduleJob jobName:{}"</span><span class="o">,</span><span class="n">task</span><span class="o">.</span><span class="na">getTaskNo</span><span class="o">());</span>
+						<span class="n">scheduler</span><span class="o">.</span><span class="na">rescheduleJob</span><span class="o">(</span><span class="n">task</span><span class="o">.</span><span class="na">getTaskNo</span><span class="o">()</span> <span class="o">+</span> <span class="s">"Trigger"</span><span class="o">,</span> <span class="nc">Scheduler</span><span class="o">.</span><span class="na">DEFAULT_GROUP</span><span class="o">,</span> <span class="n">taskTrigger</span><span class="o">);</span>
+					<span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">SchedulerException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+						<span class="n">logger</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"revieved task[{},{}] reschedule error:{}"</span><span class="o">,</span> <span class="n">task</span><span class="o">.</span><span class="na">getTaskNo</span><span class="o">(),</span> <span class="n">task</span><span class="o">.</span><span class="na">getSchedulerRule</span><span class="o">(),</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+					<span class="o">}</span>
+				<span class="o">}</span>
+				<span class="n">jobNameMap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">task</span><span class="o">.</span><span class="na">getTaskNo</span><span class="o">()</span> <span class="o">+</span> <span class="s">"Job"</span><span class="o">);</span>
+			<span class="o">}</span>
+		<span class="o">}</span>
+
+		<span class="k">if</span> <span class="o">(</span><span class="n">jobNameMap</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+			<span class="n">logger</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"====================================="</span><span class="o">);</span>
+			<span class="n">logger</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"Jobs need to be removed:"</span> <span class="o">+</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">toString</span><span class="o">(</span><span class="n">jobNameMap</span><span class="o">.</span><span class="na">keySet</span><span class="o">().</span><span class="na">toArray</span><span class="o">()));</span>
+			<span class="n">logger</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"====================================="</span><span class="o">);</span>
+			<span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">jobName</span> <span class="o">:</span> <span class="n">jobNameMap</span><span class="o">.</span><span class="na">keySet</span><span class="o">())</span> <span class="o">{</span>
+				<span class="k">try</span> <span class="o">{</span>
+					<span class="n">scheduler</span><span class="o">.</span><span class="na">deleteJob</span><span class="o">(</span><span class="n">jobName</span><span class="o">,</span> <span class="n">jobNameMap</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">jobName</span><span class="o">));</span>
+				<span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">SchedulerException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+					<span class="n">logger</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"Error occured when deleting Job[{}] with Exception:{}"</span><span class="o">,</span> <span class="n">jobName</span><span class="o">,</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+				<span class="o">}</span>
+			<span class="o">}</span>
+		<span class="o">}</span>
+		<span class="n">logger</span><span class="o">.</span><span class="na">info</span><span class="o">(</span><span class="s">"end to assemble task from db."</span><span class="o">);</span>
+	<span class="o">}</span>
+
+	<span class="kd">private</span> <span class="nc">Map</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">,</span> <span class="nc">String</span><span class="o">&gt;</span> <span class="nf">getAllJobNames</span><span class="o">()</span> <span class="o">{</span>
+		<span class="nc">Map</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">,</span> <span class="nc">String</span><span class="o">&gt;</span> <span class="n">jobNameMap</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">HashMap</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">,</span> <span class="nc">String</span><span class="o">&gt;();</span>
+		<span class="k">try</span> <span class="o">{</span>
+			<span class="nc">String</span><span class="o">[]</span> <span class="n">groups</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="na">getJobGroupNames</span><span class="o">();</span>
+			<span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">group</span> <span class="o">:</span> <span class="n">groups</span><span class="o">)</span> <span class="o">{</span>
+				<span class="nc">String</span><span class="o">[]</span> <span class="n">jobs</span> <span class="o">=</span> <span class="n">scheduler</span><span class="o">.</span><span class="na">getJobNames</span><span class="o">(</span><span class="n">group</span><span class="o">);</span>
+				<span class="k">if</span> <span class="o">(</span><span class="n">jobs</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+					<span class="k">for</span> <span class="o">(</span><span class="nc">String</span> <span class="n">job</span> <span class="o">:</span> <span class="n">jobs</span><span class="o">)</span> <span class="o">{</span>
+						<span class="n">jobNameMap</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">job</span><span class="o">,</span> <span class="n">group</span><span class="o">);</span>
+					<span class="o">}</span>
+				<span class="o">}</span>
+			<span class="o">}</span>
+		<span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">SchedulerException</span> <span class="n">e1</span><span class="o">)</span> <span class="o">{</span>
+			<span class="n">logger</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"Failed in geting all job names with exception:{}"</span><span class="o">,</span> <span class="n">e1</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+		<span class="o">}</span>
+		<span class="k">return</span> <span class="n">jobNameMap</span><span class="o">;</span>
+	<span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>定时任务表，执行的时候以表里面的数据为准，方便编辑。</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SET</span> <span class="n">FOREIGN_KEY_CHECKS</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span>
+
+<span class="c1">-- ----------------------------</span>
+<span class="c1">-- Table structure for `zx_task_informations`</span>
+<span class="c1">-- ----------------------------</span>
+<span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">IF</span> <span class="k">EXISTS</span> <span class="nv">`zx_task_informations`</span><span class="p">;</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="nv">`zx_task_informations`</span> <span class="p">(</span>
+  <span class="nv">`id`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="n">AUTO_INCREMENT</span><span class="p">,</span>
+  <span class="nv">`version`</span> <span class="nb">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'版本号：需要乐观锁控制'</span><span class="p">,</span>
+  <span class="nv">`taskNo`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'任务编号'</span><span class="p">,</span>
+  <span class="nv">`taskName`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'任务名称'</span><span class="p">,</span>
+  <span class="nv">`schedulerRule`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'定时规则表达式'</span><span class="p">,</span>
+  <span class="nv">`frozenStatus`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'冻结状态'</span><span class="p">,</span>
+  <span class="nv">`executorNo`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">128</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'执行方'</span><span class="p">,</span>
+  <span class="nv">`timeKey`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">32</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'执行时间格式'</span><span class="p">,</span>
+  <span class="nv">`frozenTime`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">13</span><span class="p">)</span> <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'冻结时间'</span><span class="p">,</span>
+  <span class="nv">`unfrozenTime`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">13</span><span class="p">)</span> <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'解冻时间'</span><span class="p">,</span>
+  <span class="nv">`createTime`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">13</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'创建时间'</span><span class="p">,</span>
+  <span class="nv">`lastModifyTime`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">13</span><span class="p">)</span> <span class="k">DEFAULT</span> <span class="k">NULL</span> <span class="k">COMMENT</span> <span class="s1">'最近修改时间'</span><span class="p">,</span>
+  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="nv">`id`</span><span class="p">)</span>
+<span class="p">)</span> <span class="n">ENGINE</span><span class="o">=</span><span class="n">InnoDB</span> <span class="n">AUTO_INCREMENT</span><span class="o">=</span><span class="mi">26</span> <span class="k">DEFAULT</span> <span class="n">CHARSET</span><span class="o">=</span><span class="n">utf8</span> <span class="k">COMMENT</span><span class="o">=</span><span class="s1">'定时任务信息表'</span><span class="p">;</span>
+
+<span class="c1">-- ----------------------------</span>
+<span class="c1">-- Records of zx_task_informations</span>
+<span class="c1">-- ----------------------------</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> <span class="nv">`zx_task_informations`</span> <span class="k">VALUES</span> <span class="p">(</span><span class="s1">'1'</span><span class="p">,</span> <span class="s1">'0'</span><span class="p">,</span> <span class="s1">'resendSmsAndEmail'</span><span class="p">,</span> <span class="s1">'重发短信和邮件'</span><span class="p">,</span> <span class="s1">'10 */10 * * * ?'</span><span class="p">,</span> <span class="s1">'FROZEN'</span><span class="p">,</span> <span class="s1">'0'</span><span class="p">,</span> <span class="s1">'yyyy-MM-dd HH:mm'</span><span class="p">,</span> <span class="s1">'0'</span><span class="p">,</span> <span class="s1">'0'</span><span class="p">,</span> <span class="s1">'0'</span><span class="p">,</span> <span class="s1">'1486807296009'</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>这就是我们第一代定时任务系统，达到了定期执行定时任务的效果，但是同样有两个缺点：</p>
+
+<ul>
+  <li>1、定时调度和业务代码耦合在一起</li>
+  <li>2、每次调整定时任务的时间需要重启服务</li>
+</ul>
+
+:ET

@@ -1,0 +1,380 @@
+I"t�<p>上篇文章介绍了Spring boot初级教程：<a href="http://www.ityouknow.com/springboot/2016/01/06/spring-boot-quick-start.html">spring boot(一)：入门篇</a>，方便大家快速入门、了解实践Spring boot特性；本篇文章接着上篇内容继续为大家介绍spring boot的其它特性（有些未必是spring boot体系桟的功能，但是是spring特别推荐的一些开源技术本文也会介绍），对了这里只是一个大概的介绍，特别详细的使用我们会在其它的文章中来展开说明。</p>
+
+<h2 id="web开发">web开发</h2>
+
+<p>spring boot web开发非常的简单，其中包括常用的json输出、filters、property、log等</p>
+
+<h3 id="json-接口开发">json 接口开发</h3>
+
+<p>在以前的spring 开发的时候需要我们提供json接口的时候需要做那些配置呢</p>
+
+<blockquote>
+  <ol>
+    <li>添加 jackjson 等相关jar包</li>
+    <li>配置spring controller扫描</li>
+    <li>对接的方法添加@ResponseBody</li>
+  </ol>
+</blockquote>
+
+<p>就这样我们会经常由于配置错误，导致406错误等等，spring boot如何做呢，只需要类添加 <code class="highlighter-rouge"> @RestController </code> 即可，默认类中的方法都会以json的格式返回</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@RestController</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloWorldController</span> <span class="o">{</span>
+    <span class="nd">@RequestMapping</span><span class="o">(</span><span class="s">"/getUser"</span><span class="o">)</span>
+    <span class="kd">public</span> <span class="nc">User</span> <span class="nf">getUser</span><span class="o">()</span> <span class="o">{</span>
+    	<span class="nc">User</span> <span class="n">user</span><span class="o">=</span><span class="k">new</span> <span class="nc">User</span><span class="o">();</span>
+    	<span class="n">user</span><span class="o">.</span><span class="na">setUserName</span><span class="o">(</span><span class="s">"小明"</span><span class="o">);</span>
+    	<span class="n">user</span><span class="o">.</span><span class="na">setPassWord</span><span class="o">(</span><span class="s">"xxxx"</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">user</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>如果我们需要使用页面开发只要使用<code class="highlighter-rouge"> @Controller</code> ，下面会结合模板来说明</p>
+
+<h3 id="自定义filter">自定义Filter</h3>
+<p>我们常常在项目中会使用filters用于录调用日志、排除有XSS威胁的字符、执行权限验证等等。Spring Boot自动添加了OrderedCharacterEncodingFilter和HiddenHttpMethodFilter，并且我们可以自定义Filter。</p>
+
+<p>两个步骤：</p>
+
+<blockquote>
+  <ol>
+    <li>实现Filter接口，实现Filter方法</li>
+    <li>添加<code class="highlighter-rouge">@Configuration</code> 注解，将自定义Filter加入过滤链</li>
+  </ol>
+</blockquote>
+
+<p>好吧，直接上代码</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Configuration</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">WebConfiguration</span> <span class="o">{</span>
+    <span class="nd">@Bean</span>
+    <span class="kd">public</span> <span class="nc">RemoteIpFilter</span> <span class="nf">remoteIpFilter</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">RemoteIpFilter</span><span class="o">();</span>
+    <span class="o">}</span>
+    
+    <span class="nd">@Bean</span>
+    <span class="kd">public</span> <span class="nc">FilterRegistrationBean</span> <span class="nf">testFilterRegistration</span><span class="o">()</span> <span class="o">{</span>
+
+        <span class="nc">FilterRegistrationBean</span> <span class="n">registration</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">FilterRegistrationBean</span><span class="o">();</span>
+        <span class="n">registration</span><span class="o">.</span><span class="na">setFilter</span><span class="o">(</span><span class="k">new</span> <span class="nc">MyFilter</span><span class="o">());</span>
+        <span class="n">registration</span><span class="o">.</span><span class="na">addUrlPatterns</span><span class="o">(</span><span class="s">"/*"</span><span class="o">);</span>
+        <span class="n">registration</span><span class="o">.</span><span class="na">addInitParameter</span><span class="o">(</span><span class="s">"paramName"</span><span class="o">,</span> <span class="s">"paramValue"</span><span class="o">);</span>
+        <span class="n">registration</span><span class="o">.</span><span class="na">setName</span><span class="o">(</span><span class="s">"MyFilter"</span><span class="o">);</span>
+        <span class="n">registration</span><span class="o">.</span><span class="na">setOrder</span><span class="o">(</span><span class="mi">1</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">registration</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+    <span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyFilter</span> <span class="kd">implements</span> <span class="nc">Filter</span> <span class="o">{</span>
+		<span class="nd">@Override</span>
+		<span class="kd">public</span> <span class="kt">void</span> <span class="nf">destroy</span><span class="o">()</span> <span class="o">{</span>
+			<span class="c1">// TODO Auto-generated method stub</span>
+		<span class="o">}</span>
+
+		<span class="nd">@Override</span>
+		<span class="kd">public</span> <span class="kt">void</span> <span class="nf">doFilter</span><span class="o">(</span><span class="nc">ServletRequest</span> <span class="n">srequest</span><span class="o">,</span> <span class="nc">ServletResponse</span> <span class="n">sresponse</span><span class="o">,</span> <span class="nc">FilterChain</span> <span class="n">filterChain</span><span class="o">)</span>
+				<span class="kd">throws</span> <span class="nc">IOException</span><span class="o">,</span> <span class="nc">ServletException</span> <span class="o">{</span>
+			<span class="c1">// TODO Auto-generated method stub</span>
+			<span class="nc">HttpServletRequest</span> <span class="n">request</span> <span class="o">=</span> <span class="o">(</span><span class="nc">HttpServletRequest</span><span class="o">)</span> <span class="n">srequest</span><span class="o">;</span>
+			<span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"this is MyFilter,url :"</span><span class="o">+</span><span class="n">request</span><span class="o">.</span><span class="na">getRequestURI</span><span class="o">());</span>
+			<span class="n">filterChain</span><span class="o">.</span><span class="na">doFilter</span><span class="o">(</span><span class="n">srequest</span><span class="o">,</span> <span class="n">sresponse</span><span class="o">);</span>
+		<span class="o">}</span>
+
+		<span class="nd">@Override</span>
+		<span class="kd">public</span> <span class="kt">void</span> <span class="nf">init</span><span class="o">(</span><span class="nc">FilterConfig</span> <span class="n">arg0</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">ServletException</span> <span class="o">{</span>
+			<span class="c1">// TODO Auto-generated method stub</span>
+		<span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h3 id="自定义property">自定义Property</h3>
+
+<p>在web开发的过程中，我经常需要自定义一些配置文件，如何使用呢</p>
+
+<h3 id="配置在applicationproperties中">配置在application.properties中</h3>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>com.neo.title=纯洁的微笑
+com.neo.description=分享生活和技术
+</code></pre></div></div>
+
+<p>自定义配置类</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Component</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">NeoProperties</span> <span class="o">{</span>
+	<span class="nd">@Value</span><span class="o">(</span><span class="s">"${com.neo.title}"</span><span class="o">)</span>
+	<span class="kd">private</span> <span class="nc">String</span> <span class="n">title</span><span class="o">;</span>
+	<span class="nd">@Value</span><span class="o">(</span><span class="s">"${com.neo.description}"</span><span class="o">)</span>
+	<span class="kd">private</span> <span class="nc">String</span> <span class="n">description</span><span class="o">;</span>
+
+	<span class="c1">//省略getter settet方法</span>
+
+	<span class="o">}</span>
+
+</code></pre></div></div>
+
+<h3 id="log配置">log配置</h3>
+<p>配置输出的地址和输出级别</p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">logging.path</span><span class="p">=</span><span class="s">/user/local/log</span>
+<span class="py">logging.level.com.favorites</span><span class="p">=</span><span class="s">DEBUG</span>
+<span class="py">logging.level.org.springframework.web</span><span class="p">=</span><span class="s">INFO</span>
+<span class="py">logging.level.org.hibernate</span><span class="p">=</span><span class="s">ERROR</span>
+</code></pre></div></div>
+<p>path为本机的log地址，<code class="highlighter-rouge">logging.level </code> 后面可以根据包路径配置不同资源的log级别</p>
+
+<h2 id="数据库操作">数据库操作</h2>
+
+<p>在这里我重点讲述mysql、spring data jpa的使用，其中mysql 就不用说了大家很熟悉，jpa是利用Hibernate生成各种自动化的sql，如果只是简单的增删改查，基本上不用手写了，spring内部已经帮大家封装实现了。</p>
+
+<p>下面简单介绍一下如何在spring boot中使用</p>
+
+<h3 id="1添加相jar包">1、添加相jar包</h3>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="nt">&lt;dependency&gt;</span>
+        <span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+        <span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-data-jpa<span class="nt">&lt;/artifactId&gt;</span>
+    <span class="nt">&lt;/dependency&gt;</span>
+     <span class="nt">&lt;dependency&gt;</span>
+        <span class="nt">&lt;groupId&gt;</span>mysql<span class="nt">&lt;/groupId&gt;</span>
+        <span class="nt">&lt;artifactId&gt;</span>mysql-connector-java<span class="nt">&lt;/artifactId&gt;</span>
+    <span class="nt">&lt;/dependency&gt;</span>
+</code></pre></div></div>
+
+<h3 id="2添加配置文件">2、添加配置文件</h3>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">spring.datasource.url</span><span class="p">=</span><span class="s">jdbc:mysql://localhost:3306/test</span>
+<span class="py">spring.datasource.username</span><span class="p">=</span><span class="s">root</span>
+<span class="py">spring.datasource.password</span><span class="p">=</span><span class="s">root</span>
+<span class="py">spring.datasource.driver-class-name</span><span class="p">=</span><span class="s">com.mysql.jdbc.Driver</span>
+
+<span class="py">spring.jpa.properties.hibernate.hbm2ddl.auto</span><span class="p">=</span><span class="s">update</span>
+<span class="py">spring.jpa.properties.hibernate.dialect</span><span class="p">=</span><span class="s">org.hibernate.dialect.MySQL5InnoDBDialect</span>
+<span class="py">spring.jpa.show-sql</span><span class="p">=</span> <span class="s">true</span>
+</code></pre></div></div>
+<p>其实这个hibernate.hbm2ddl.auto参数的作用主要用于：自动创建|更新|验证数据库表结构,有四个值：</p>
+
+<blockquote>
+  <ol>
+    <li>create： 每次加载hibernate时都会删除上一次的生成的表，然后根据你的model类再重新来生成新表，哪怕两次没有任何改变也要这样执行，这就是导致数据库表数据丢失的一个重要原因。</li>
+    <li>create-drop ：每次加载hibernate时根据model类生成表，但是sessionFactory一关闭,表就自动删除。</li>
+    <li>update：最常用的属性，第一次加载hibernate时根据model类会自动建立起表的结构（前提是先建立好数据库），以后加载hibernate时根据 model类自动更新表结构，即使表结构改变了但表中的行仍然存在不会删除以前的行。要注意的是当部署到服务器后，表结构是不会被马上建立起来的，是要等 应用第一次运行起来后才会。</li>
+    <li>validate ：每次加载hibernate时，验证创建数据库表结构，只会和数据库中的表进行比较，不会创建新表，但是会插入新值。</li>
+  </ol>
+</blockquote>
+
+<p><code class="highlighter-rouge">dialect</code> 主要是指定生成表名的存储引擎为InneoDB<br />
+<code class="highlighter-rouge">show-sql</code> 是否打印出自动生产的SQL，方便调试的时候查看</p>
+
+<h3 id="3添加实体类和dao">3、添加实体类和Dao</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Entity</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">User</span> <span class="kd">implements</span> <span class="nc">Serializable</span> <span class="o">{</span>
+
+	<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">long</span> <span class="n">serialVersionUID</span> <span class="o">=</span> <span class="mi">1L</span><span class="o">;</span>
+	<span class="nd">@Id</span>
+	<span class="nd">@GeneratedValue</span>
+	<span class="kd">private</span> <span class="nc">Long</span> <span class="n">id</span><span class="o">;</span>
+	<span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">false</span><span class="o">,</span> <span class="n">unique</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+	<span class="kd">private</span> <span class="nc">String</span> <span class="n">userName</span><span class="o">;</span>
+	<span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">false</span><span class="o">)</span>
+	<span class="kd">private</span> <span class="nc">String</span> <span class="n">passWord</span><span class="o">;</span>
+	<span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">false</span><span class="o">,</span> <span class="n">unique</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+	<span class="kd">private</span> <span class="nc">String</span> <span class="n">email</span><span class="o">;</span>
+	<span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">true</span><span class="o">,</span> <span class="n">unique</span> <span class="o">=</span> <span class="kc">true</span><span class="o">)</span>
+	<span class="kd">private</span> <span class="nc">String</span> <span class="n">nickName</span><span class="o">;</span>
+	<span class="nd">@Column</span><span class="o">(</span><span class="n">nullable</span> <span class="o">=</span> <span class="kc">false</span><span class="o">)</span>
+	<span class="kd">private</span> <span class="nc">String</span> <span class="n">regTime</span><span class="o">;</span>
+
+	<span class="c1">//省略getter settet方法、构造方法</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+<p>dao只要继承JpaRepository类就可以，几乎可以不用写方法，还有一个特别有尿性的功能非常赞，就是可以根据方法名来自动的生产SQL，比如<code class="highlighter-rouge">findByUserName</code> 会自动生产一个以 <code class="highlighter-rouge">userName</code> 为参数的查询方法，比如 <code class="highlighter-rouge">findAlll</code> 自动会查询表里面的所有数据，比如自动分页等等。。</p>
+
+<p><strong>Entity中不映射成列的字段得加@Transient 注解，不加注解也会映射成列</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">UserRepository</span> <span class="kd">extends</span> <span class="nc">JpaRepository</span><span class="o">&lt;</span><span class="nc">User</span><span class="o">,</span> <span class="nc">Long</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="nc">User</span> <span class="nf">findByUserName</span><span class="o">(</span><span class="nc">String</span> <span class="n">userName</span><span class="o">);</span>
+    <span class="nc">User</span> <span class="nf">findByUserNameOrEmail</span><span class="o">(</span><span class="nc">String</span> <span class="n">username</span><span class="o">,</span> <span class="nc">String</span> <span class="n">email</span><span class="o">);</span>
+</code></pre></div></div>
+
+<h3 id="4测试">4、测试</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@RunWith</span><span class="o">(</span><span class="nc">SpringJUnit4ClassRunner</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+<span class="nd">@SpringApplicationConfiguration</span><span class="o">(</span><span class="nc">Application</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">UserRepositoryTests</span> <span class="o">{</span>
+
+	<span class="nd">@Autowired</span>
+	<span class="kd">private</span> <span class="nc">UserRepository</span> <span class="n">userRepository</span><span class="o">;</span>
+
+	<span class="nd">@Test</span>
+	<span class="kd">public</span> <span class="kt">void</span> <span class="nf">test</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+		<span class="nc">Date</span> <span class="n">date</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Date</span><span class="o">();</span>
+		<span class="nc">DateFormat</span> <span class="n">dateFormat</span> <span class="o">=</span> <span class="nc">DateFormat</span><span class="o">.</span><span class="na">getDateTimeInstance</span><span class="o">(</span><span class="nc">DateFormat</span><span class="o">.</span><span class="na">LONG</span><span class="o">,</span> <span class="nc">DateFormat</span><span class="o">.</span><span class="na">LONG</span><span class="o">);</span>        
+		<span class="nc">String</span> <span class="n">formattedDate</span> <span class="o">=</span> <span class="n">dateFormat</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="n">date</span><span class="o">);</span>
+		
+		<span class="n">userRepository</span><span class="o">.</span><span class="na">save</span><span class="o">(</span><span class="k">new</span> <span class="nc">User</span><span class="o">(</span><span class="s">"aa1"</span><span class="o">,</span> <span class="s">"aa@126.com"</span><span class="o">,</span> <span class="s">"aa"</span><span class="o">,</span> <span class="s">"aa123456"</span><span class="o">,</span><span class="n">formattedDate</span><span class="o">));</span>
+		<span class="n">userRepository</span><span class="o">.</span><span class="na">save</span><span class="o">(</span><span class="k">new</span> <span class="nc">User</span><span class="o">(</span><span class="s">"bb2"</span><span class="o">,</span> <span class="s">"bb@126.com"</span><span class="o">,</span> <span class="s">"bb"</span><span class="o">,</span> <span class="s">"bb123456"</span><span class="o">,</span><span class="n">formattedDate</span><span class="o">));</span>
+		<span class="n">userRepository</span><span class="o">.</span><span class="na">save</span><span class="o">(</span><span class="k">new</span> <span class="nc">User</span><span class="o">(</span><span class="s">"cc3"</span><span class="o">,</span> <span class="s">"cc@126.com"</span><span class="o">,</span> <span class="s">"cc"</span><span class="o">,</span> <span class="s">"cc123456"</span><span class="o">,</span><span class="n">formattedDate</span><span class="o">));</span>
+
+		<span class="nc">Assert</span><span class="o">.</span><span class="na">assertEquals</span><span class="o">(</span><span class="mi">9</span><span class="o">,</span> <span class="n">userRepository</span><span class="o">.</span><span class="na">findAll</span><span class="o">().</span><span class="na">size</span><span class="o">());</span>
+		<span class="nc">Assert</span><span class="o">.</span><span class="na">assertEquals</span><span class="o">(</span><span class="s">"bb"</span><span class="o">,</span> <span class="n">userRepository</span><span class="o">.</span><span class="na">findByUserNameOrEmail</span><span class="o">(</span><span class="s">"bb"</span><span class="o">,</span> <span class="s">"cc@126.com"</span><span class="o">).</span><span class="na">getNickName</span><span class="o">());</span>
+		<span class="n">userRepository</span><span class="o">.</span><span class="na">delete</span><span class="o">(</span><span class="n">userRepository</span><span class="o">.</span><span class="na">findByUserName</span><span class="o">(</span><span class="s">"aa1"</span><span class="o">));</span>
+	<span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>当让 spring data jpa 还有很多功能，比如封装好的分页，可以自己定义SQL，主从分离等等，这里就不详细讲了</p>
+
+<h2 id="thymeleaf模板">thymeleaf模板</h2>
+
+<p>Spring boot 推荐使用来代替jsp,thymeleaf模板到底是什么来头呢，让spring大哥来推荐，下面我们来聊聊</p>
+
+<h3 id="thymeleaf-介绍">Thymeleaf 介绍</h3>
+<p>Thymeleaf是一款用于渲染XML/XHTML/HTML5内容的模板引擎。类似JSP，Velocity，FreeMaker等，它也可以轻易的与Spring MVC等Web框架进行集成作为Web应用的模板引擎。与其它模板引擎相比，Thymeleaf最大的特点是能够直接在浏览器中打开并正确显示模板页面，而不需要启动整个Web应用。</p>
+
+<p>好了，你们说了我们已经习惯使用了什么 velocity,FreMaker，beetle之类的模版，那么到底好在哪里呢？
+比一比吧
+Thymeleaf是与众不同的，因为它使用了自然的模板技术。这意味着Thymeleaf的模板语法并不会破坏文档的结构，模板依旧是有效的XML文档。模板还可以用作工作原型，Thymeleaf会在运行期替换掉静态值。Velocity与FreeMarker则是连续的文本处理器。
+下面的代码示例分别使用Velocity、FreeMarker与Thymeleaf打印出一条消息：</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Velocity: <span class="nt">&lt;p&gt;</span>$message<span class="nt">&lt;/p&gt;</span>
+FreeMarker: <span class="nt">&lt;p&gt;</span>${message}<span class="nt">&lt;/p&gt;</span>
+Thymeleaf: <span class="nt">&lt;p</span> <span class="na">th:text=</span><span class="s">"${message}"</span><span class="nt">&gt;</span>Hello World!<span class="nt">&lt;/p&gt;</span>
+</code></pre></div></div>
+
+<p>** 注意，由于Thymeleaf使用了XML DOM解析器，因此它并不适合于处理大规模的XML文件。**</p>
+
+<h3 id="url">URL</h3>
+
+<p>URL在Web应用模板中占据着十分重要的地位，需要特别注意的是Thymeleaf对于URL的处理是通过语法@{…}来处理的。Thymeleaf支持绝对路径URL：</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;a</span> <span class="na">th:href=</span><span class="s">"@{http://www.thymeleaf.org}"</span><span class="nt">&gt;</span>Thymeleaf<span class="nt">&lt;/a&gt;</span>
+</code></pre></div></div>
+
+<h3 id="条件求值">条件求值</h3>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;a</span> <span class="na">th:href=</span><span class="s">"@{/login}"</span> <span class="na">th:unless=</span><span class="s">${session.user</span> <span class="err">!=</span> <span class="na">null</span><span class="err">}</span><span class="nt">&gt;</span>Login<span class="nt">&lt;/a&gt;</span>
+</code></pre></div></div>
+
+<h3 id="for循环">for循环</h3>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;tr</span> <span class="na">th:each=</span><span class="s">"prod : ${prods}"</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;td</span> <span class="na">th:text=</span><span class="s">"${prod.name}"</span><span class="nt">&gt;</span>Onions<span class="nt">&lt;/td&gt;</span>
+      <span class="nt">&lt;td</span> <span class="na">th:text=</span><span class="s">"${prod.price}"</span><span class="nt">&gt;</span>2.41<span class="nt">&lt;/td&gt;</span>
+      <span class="nt">&lt;td</span> <span class="na">th:text=</span><span class="s">"${prod.inStock}? #{true} : #{false}"</span><span class="nt">&gt;</span>yes<span class="nt">&lt;/td&gt;</span>
+<span class="nt">&lt;/tr&gt;</span>
+</code></pre></div></div>
+
+<p>就列出这几个吧</p>
+
+<h3 id="页面即原型">页面即原型</h3>
+
+<p>在Web开发过程中一个绕不开的话题就是前端工程师与后端工程师的写作，在传统Java Web开发过程中，前端工程师和后端工程师一样，也需要安装一套完整的开发环境，然后各类Java IDE中修改模板、静态资源文件，启动/重启/重新加载应用服务器，刷新页面查看最终效果。</p>
+
+<p>但实际上前端工程师的职责更多应该关注于页面本身而非后端，使用JSP，Velocity等传统的Java模板引擎很难做到这一点，因为它们必须在应用服务器中渲染完成后才能在浏览器中看到结果，而Thymeleaf从根本上颠覆了这一过程，通过属性进行模板渲染不会引入任何新的浏览器不能识别的标签，例如JSP中的<form:input>，不会在Tag内部写表达式。整个页面直接作为HTML文件用浏览器打开，几乎就可以看到最终的效果，这大大解放了前端工程师的生产力，它们的最终交付物就是纯的HTML/CSS/JavaScript文件。</form:input></p>
+
+<h2 id="gradle-构建工具">Gradle 构建工具</h2>
+
+<p>spring 项目建议使用Gradle进行构建项目，相比maven来讲 Gradle更简洁，而且gradle更适合大型复杂项目的构建。gradle吸收了maven和ant的特点而来，不过目前maven仍然是Java界的主流，大家可以先了解了解。</p>
+
+<p>一个使用gradle配置的项目</p>
+
+<div class="language-properties highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">buildscript</span> <span class="err">{</span>
+    <span class="err">repositories</span> <span class="err">{</span>
+        <span class="err">maven</span> <span class="err">{</span> <span class="err">url</span> <span class="err">"</span><span class="py">http</span><span class="p">:</span><span class="s">//repo.spring.io/libs-snapshot" }</span>
+        <span class="err">mavenLocal()</span>
+    <span class="err">}</span>
+    <span class="err">dependencies</span> <span class="err">{</span>
+        <span class="err">classpath("</span><span class="py">org.springframework.boot</span><span class="p">:</span><span class="s">spring-boot-gradle-plugin:1.3.6.RELEASE")</span>
+    <span class="err">}</span>
+<span class="err">}</span>
+
+<span class="err">apply</span> <span class="py">plugin</span><span class="p">:</span> <span class="s">'java'</span>  <span class="s">//添加 Java 插件, 表明这是一个 Java 项目</span>
+<span class="err">apply</span> <span class="py">plugin</span><span class="p">:</span> <span class="s">'spring-boot'</span> <span class="s">//添加 Spring-boot支持</span>
+<span class="err">apply</span> <span class="py">plugin</span><span class="p">:</span> <span class="s">'war'</span>  <span class="s">//添加 War 插件, 可以导出 War 包</span>
+<span class="err">apply</span> <span class="py">plugin</span><span class="p">:</span> <span class="s">'eclipse'</span> <span class="s">//添加 Eclipse 插件, 添加 Eclipse IDE 支持, Intellij Idea 为 "idea"</span>
+
+<span class="err">war</span> <span class="err">{</span>
+    <span class="py">baseName</span> <span class="p">=</span> <span class="s">'favorites'</span>
+    <span class="py">version</span> <span class="p">=</span>  <span class="s">'0.1.0'</span>
+<span class="err">}</span>
+
+<span class="py">sourceCompatibility</span> <span class="p">=</span> <span class="s">1.7  //最低兼容版本 JDK1.7</span>
+<span class="py">targetCompatibility</span> <span class="p">=</span> <span class="s">1.7  //目标兼容版本 JDK1.7</span>
+
+<span class="err">repositories</span> <span class="err">{</span>     <span class="err">//</span>  <span class="err">Maven</span> <span class="err">仓库</span>
+    <span class="err">mavenLocal()</span>        <span class="err">//使用本地仓库</span>
+    <span class="err">mavenCentral()</span>      <span class="err">//使用中央仓库</span>
+    <span class="err">maven</span> <span class="err">{</span> <span class="err">url</span> <span class="err">"</span><span class="py">http</span><span class="p">:</span><span class="s">//repo.spring.io/libs-snapshot" } //使用远程仓库</span>
+<span class="err">}</span>
+ 
+<span class="err">dependencies</span> <span class="err">{</span>   <span class="err">//</span> <span class="err">各种</span> <span class="err">依赖的jar包</span>
+    <span class="err">compile("</span><span class="py">org.springframework.boot</span><span class="p">:</span><span class="s">spring-boot-starter-web:1.3.6.RELEASE")</span>
+    <span class="err">compile("</span><span class="py">org.springframework.boot</span><span class="p">:</span><span class="s">spring-boot-starter-thymeleaf:1.3.6.RELEASE")</span>
+    <span class="err">compile("</span><span class="py">org.springframework.boot</span><span class="p">:</span><span class="s">spring-boot-starter-data-jpa:1.3.6.RELEASE")</span>
+    <span class="err">compile</span> <span class="py">group</span><span class="p">:</span> <span class="s">'mysql', name: 'mysql-connector-java', version: '5.1.6'</span>
+    <span class="err">compile</span> <span class="py">group</span><span class="p">:</span> <span class="s">'org.apache.commons', name: 'commons-lang3', version: '3.4'</span>
+    <span class="err">compile("</span><span class="py">org.springframework.boot</span><span class="p">:</span><span class="s">spring-boot-devtools:1.3.6.RELEASE")</span>
+    <span class="err">compile("</span><span class="py">org.springframework.boot</span><span class="p">:</span><span class="s">spring-boot-starter-test:1.3.6.RELEASE")</span>
+    <span class="err">compile</span> <span class="err">'</span><span class="py">org.webjars.bower</span><span class="p">:</span><span class="s">bootstrap:3.3.6'</span>
+	<span class="err">compile</span> <span class="err">'</span><span class="py">org.webjars.bower</span><span class="p">:</span><span class="s">jquery:2.2.4'</span>
+    <span class="err">compile("</span><span class="py">org.webjars</span><span class="p">:</span><span class="s">vue:1.0.24")</span>
+	<span class="err">compile</span> <span class="err">'</span><span class="py">org.webjars.bower</span><span class="p">:</span><span class="s">vue-resource:0.7.0'</span>
+
+<span class="err">}</span>
+
+<span class="err">bootRun</span> <span class="err">{</span>
+    <span class="py">addResources</span> <span class="p">=</span> <span class="s">true</span>
+<span class="err">}</span>
+</code></pre></div></div>
+
+<h2 id="webjars">WebJars</h2>
+
+<p>WebJars是一个很神奇的东西，可以让大家以jar包的形式来使用前端的各种框架、组件。</p>
+
+<h3 id="什么是webjars">什么是WebJars</h3>
+
+<p>什么是WebJars？WebJars是将客户端（浏览器）资源（JavaScript，Css等）打成jar包文件，以对资源进行统一依赖管理。WebJars的jar包部署在Maven中央仓库上。</p>
+
+<h3 id="为什么使用">为什么使用</h3>
+
+<p>我们在开发Java web项目的时候会使用像Maven，Gradle等构建工具以实现对jar包版本依赖管理，以及项目的自动化管理，但是对于JavaScript，Css等前端资源包，我们只能采用拷贝到webapp下的方式，这样做就无法对这些资源进行依赖管理。那么WebJars就提供给我们这些前端资源的jar包形势，我们就可以进行依赖管理。</p>
+
+<h3 id="如何使用">如何使用</h3>
+
+<p>1、 <a href="http://www.webjars.org/bower">WebJars主官网</a> 查找对于的组件，比如Vuejs</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependency&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>org.webjars.bower<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>vue<span class="nt">&lt;/artifactId&gt;</span>
+    <span class="nt">&lt;version&gt;</span>1.0.21<span class="nt">&lt;/version&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+</code></pre></div></div>
+
+<p>2、页面引入</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;link</span> <span class="na">th:href=</span><span class="s">"@{/webjars/bootstrap/3.3.6/dist/css/bootstrap.css}"</span> <span class="na">rel=</span><span class="s">"stylesheet"</span><span class="nt">&gt;&lt;/link&gt;</span>
+</code></pre></div></div>
+
+<p>就可以正常使用了！</p>
+
+<p><strong><a href="https://github.com/ityouknow/spring-boot-examples">示例代码-github</a></strong></p>
+
+<p><strong><a href="https://gitee.com/ityouknow/spring-boot-examples">示例代码-码云</a></strong></p>
+
+<h2 id="参考">参考：</h2>
+
+<p><a href="http://www.tianmaying.com/tutorial/using-thymeleaf">新一代Java模板引擎Thymeleaf</a></p>
+
+<p><a href="https://qbgbook.gitbooks.io/spring-boot-reference-guide-zh/content/">Spring Boot参考指南-中文版</a></p>
+
+<hr />
+
+<p><strong>作者：纯洁的微笑</strong><br />
+<strong>出处：<a href="http://www.ityouknow.com">www.ityouknow.com</a></strong>  <br />
+<strong>版权所有，欢迎保留原文链接进行转载：)</strong></p>
+
+:ET

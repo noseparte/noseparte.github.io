@@ -1,0 +1,321 @@
+I"$U<p>有很多网友会时不时的问我，spring boot项目如何测试，如何部署，在生产中有什么好的部署方案吗？这篇文章就来介绍一下spring boot 如何开发、调试、打包到最后的投产上线。</p>
+
+<h2 id="开发阶段">开发阶段</h2>
+
+<h3 id="单元测试">单元测试</h3>
+
+<p>在开发阶段的时候最重要的是单元测试了，springboot对单元测试的支持已经很完善了。</p>
+
+<p>1、在pom包中添加spring-boot-starter-test包引用</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependency&gt;</span>
+	<span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+	<span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-test<span class="nt">&lt;/artifactId&gt;</span>
+	<span class="nt">&lt;scope&gt;</span>test<span class="nt">&lt;/scope&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+</code></pre></div></div>
+
+<p>2、开发测试类</p>
+
+<p>以最简单的helloworld为例，在测试类的类头部需要添加：<code class="highlighter-rouge">@RunWith(SpringRunner.class)</code>和<code class="highlighter-rouge">@SpringBootTest</code>注解，在测试方法的顶端添加<code class="highlighter-rouge">@Test</code>即可，最后在方法上点击右键run就可以运行。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@RunWith</span><span class="o">(</span><span class="nc">SpringRunner</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+<span class="nd">@SpringBootTest</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">ApplicationTests</span> <span class="o">{</span>
+
+	<span class="nd">@Test</span>
+	<span class="kd">public</span> <span class="kt">void</span> <span class="nf">hello</span><span class="o">()</span> <span class="o">{</span>
+		<span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"hello world"</span><span class="o">);</span>
+	<span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>实际使用中，可以按照项目的正常使用去注入dao层代码或者是service层代码进行测试验证，spring-boot-starter-test提供很多基础用法，更难得的是增加了对Controller层测试的支持。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//简单验证结果集是否正确</span>
+<span class="nc">Assert</span><span class="o">.</span><span class="na">assertEquals</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="n">userMapper</span><span class="o">.</span><span class="na">getAll</span><span class="o">().</span><span class="na">size</span><span class="o">());</span>
+
+<span class="c1">//验证结果集，提示</span>
+<span class="nc">Assert</span><span class="o">.</span><span class="na">assertTrue</span><span class="o">(</span><span class="s">"错误，正确的返回值为200"</span><span class="o">,</span> <span class="n">status</span> <span class="o">==</span> <span class="mi">200</span><span class="o">);</span> 
+<span class="nc">Assert</span><span class="o">.</span><span class="na">assertFalse</span><span class="o">(</span><span class="s">"错误，正确的返回值为200"</span><span class="o">,</span> <span class="n">status</span> <span class="o">!=</span> <span class="mi">200</span><span class="o">);</span>  
+
+</code></pre></div></div>
+
+<p>引入了<code class="highlighter-rouge">MockMvc</code>支持了对Controller层的测试，简单示例如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">HelloControlerTests</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="nc">MockMvc</span> <span class="n">mvc</span><span class="o">;</span>
+
+    <span class="c1">//初始化执行</span>
+    <span class="nd">@Before</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">setUp</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="n">mvc</span> <span class="o">=</span> <span class="nc">MockMvcBuilders</span><span class="o">.</span><span class="na">standaloneSetup</span><span class="o">(</span><span class="k">new</span> <span class="nc">HelloController</span><span class="o">()).</span><span class="na">build</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="c1">//验证controller是否正常响应并打印返回结果</span>
+    <span class="nd">@Test</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">getHello</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="n">mvc</span><span class="o">.</span><span class="na">perform</span><span class="o">(</span><span class="nc">MockMvcRequestBuilders</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="s">"/hello"</span><span class="o">).</span><span class="na">accept</span><span class="o">(</span><span class="nc">MediaType</span><span class="o">.</span><span class="na">APPLICATION_JSON</span><span class="o">))</span>
+                <span class="o">.</span><span class="na">andExpect</span><span class="o">(</span><span class="nc">MockMvcResultMatchers</span><span class="o">.</span><span class="na">status</span><span class="o">().</span><span class="na">isOk</span><span class="o">())</span>
+                <span class="o">.</span><span class="na">andDo</span><span class="o">(</span><span class="nc">MockMvcResultHandlers</span><span class="o">.</span><span class="na">print</span><span class="o">())</span>
+                <span class="o">.</span><span class="na">andReturn</span><span class="o">();</span>
+    <span class="o">}</span>
+    
+    <span class="c1">//验证controller是否正常响应并判断返回结果是否正确</span>
+    <span class="nd">@Test</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">testHello</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="n">mvc</span><span class="o">.</span><span class="na">perform</span><span class="o">(</span><span class="nc">MockMvcRequestBuilders</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="s">"/hello"</span><span class="o">).</span><span class="na">accept</span><span class="o">(</span><span class="nc">MediaType</span><span class="o">.</span><span class="na">APPLICATION_JSON</span><span class="o">))</span>
+                <span class="o">.</span><span class="na">andExpect</span><span class="o">(</span><span class="n">status</span><span class="o">().</span><span class="na">isOk</span><span class="o">())</span>
+                <span class="o">.</span><span class="na">andExpect</span><span class="o">(</span><span class="n">content</span><span class="o">().</span><span class="na">string</span><span class="o">(</span><span class="n">equalTo</span><span class="o">(</span><span class="s">"Hello World"</span><span class="o">)));</span>
+    <span class="o">}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>单元测试是验证你代码第一道屏障，要养成每写一部分代码就进行单元测试的习惯，不要等到全部集成后再进行测试，集成后因为更关注整体运行效果，很容易遗漏掉代码底层的bug.</p>
+
+<h3 id="集成测试">集成测试</h3>
+
+<p>整体开发完成之后进入集成测试，spring boot项目的启动入口在 Application类中，直接运行run方法就可以启动项目，但是在调试的过程中我们肯定需要不断的去调试代码，如果每修改一次代码就需要手动重启一次服务就很麻烦，spring boot非常贴心的给出了热部署的支持，很方便在web项目中调试使用。</p>
+
+<p>pom需要添加以下的配置：</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code> <span class="nt">&lt;dependencies&gt;</span>
+    <span class="nt">&lt;dependency&gt;</span>
+        <span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+        <span class="nt">&lt;artifactId&gt;</span>spring-boot-devtools<span class="nt">&lt;/artifactId&gt;</span>
+        <span class="nt">&lt;optional&gt;</span>true<span class="nt">&lt;/optional&gt;</span>
+    <span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;/dependencies&gt;</span>
+
+<span class="nt">&lt;build&gt;</span>
+    <span class="nt">&lt;plugins&gt;</span>
+        <span class="nt">&lt;plugin&gt;</span>
+            <span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+            <span class="nt">&lt;artifactId&gt;</span>spring-boot-maven-plugin<span class="nt">&lt;/artifactId&gt;</span>
+            <span class="nt">&lt;configuration&gt;</span>
+                <span class="nt">&lt;fork&gt;</span>true<span class="nt">&lt;/fork&gt;</span>
+            <span class="nt">&lt;/configuration&gt;</span>
+        <span class="nt">&lt;/plugin&gt;</span>
+<span class="nt">&lt;/plugins&gt;</span>
+<span class="nt">&lt;/build&gt;</span>
+</code></pre></div></div>
+
+<p>添加以上配置后，项目就支持了热部署，非常方便集成测试。</p>
+
+<h2 id="投产上线">投产上线</h2>
+
+<p>其实我觉得这个阶段，应该还是比较简单一般分为两种；一种是打包成jar包直接执行，另一种是打包成war包放到tomcat服务器下。</p>
+
+<h3 id="打成jar包">打成jar包</h3>
+
+<p>如果你使用的是maven来管理项目，执行以下命令既可以</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>项目跟目录（和pom.xml同级）
+mvn clean package
+<span class="c">## 或者执行下面的命令</span>
+<span class="c">## 排除测试代码后进行打包</span>
+mvn clean package  <span class="nt">-Dmaven</span>.test.skip<span class="o">=</span><span class="nb">true</span>
+</code></pre></div></div>
+
+<p>打包完成后jar包会生成到target目录下，命名一般是 项目名+版本号.jar</p>
+
+<p>启动jar包命令</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>java <span class="nt">-jar</span>  target/spring-boot-scheduler-1.0.0.jar
+</code></pre></div></div>
+
+<p>这种方式，只要控制台关闭，服务就不能访问了。下面我们使用在后台运行的方式来启动:</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">nohup </span>java <span class="nt">-jar</span> target/spring-boot-scheduler-1.0.0.jar &amp;
+</code></pre></div></div>
+
+<p>也可以在启动的时候选择读取不同的配置文件</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>java <span class="nt">-jar</span> app.jar <span class="nt">--spring</span>.profiles.active<span class="o">=</span>dev
+</code></pre></div></div>
+
+<p>也可以在启动的时候设置jvm参数</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>java <span class="nt">-Xms10m</span> <span class="nt">-Xmx80m</span> <span class="nt">-jar</span> app.jar &amp;
+</code></pre></div></div>
+
+<p><strong>gradle</strong><br />
+如果使用的是gradle,使用下面命令打包</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gradle build
+java <span class="nt">-jar</span> build/libs/mymodule-0.0.1-SNAPSHOT.jar
+</code></pre></div></div>
+
+<h3 id="打成war包">打成war包</h3>
+
+<p>打成war包一般可以分两种方式来实现，第一种可以通过eclipse这种开发工具来导出war包，另外一种是使用命令来完成，这里主要介绍后一种</p>
+
+<p>1、maven项目，修改pom包</p>
+
+<p>将</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;packaging&gt;</span>jar<span class="nt">&lt;/packaging&gt;</span>  
+</code></pre></div></div>
+
+<p>改为</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;packaging&gt;</span>war<span class="nt">&lt;/packaging&gt;</span>
+</code></pre></div></div>
+
+<p>2、打包时排除tomcat.</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;dependency&gt;</span>
+	<span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+	<span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-web<span class="nt">&lt;/artifactId&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+<span class="nt">&lt;dependency&gt;</span>
+	<span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+	<span class="nt">&lt;artifactId&gt;</span>spring-boot-starter-tomcat<span class="nt">&lt;/artifactId&gt;</span>
+	<span class="nt">&lt;scope&gt;</span>provided<span class="nt">&lt;/scope&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span>
+</code></pre></div></div>
+
+<p>在这里将scope属性设置为provided，这样在最终形成的WAR中不会包含这个JAR包，因为Tomcat或Jetty等服务器在运行时将会提供相关的API类。</p>
+
+<p>3、注册启动类</p>
+
+<p>创建ServletInitializer.java，继承SpringBootServletInitializer ，覆盖configure()，把启动类Application注册进去。外部web应用服务器构建Web Application Context的时候，会把启动类添加进去。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ServletInitializer</span> <span class="kd">extends</span> <span class="nc">SpringBootServletInitializer</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="nc">SpringApplicationBuilder</span> <span class="nf">configure</span><span class="o">(</span><span class="nc">SpringApplicationBuilder</span> <span class="n">application</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">application</span><span class="o">.</span><span class="na">sources</span><span class="o">(</span><span class="nc">Application</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>最后执行</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mvn clean package  <span class="nt">-Dmaven</span>.test.skip<span class="o">=</span><span class="nb">true</span>
+</code></pre></div></div>
+<p>会在target目录下生成：项目名+版本号.war文件，拷贝到tomcat服务器中启动即可。</p>
+
+<p><strong>gradle</strong></p>
+
+<p>如果使用的是gradle,基本步奏一样，build.gradle中添加war的支持，排除spring-boot-starter-tomcat：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+
+apply plugin: <span class="s1">'war'</span>
+
+...
+
+dependencies <span class="o">{</span>
+    compile<span class="o">(</span><span class="s2">"org.springframework.boot:spring-boot-starter-web:1.4.2.RELEASE"</span><span class="o">){</span>
+    	exclude mymodule:<span class="s2">"spring-boot-starter-tomcat"</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+...
+</code></pre></div></div>
+
+<p>再使用构建命令</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gradle build
+</code></pre></div></div>
+
+<p>war会生成在build\libs 目录下。</p>
+
+<h2 id="生产运维">生产运维</h2>
+
+<h3 id="查看jvm参数的值">查看JVM参数的值</h3>
+
+<p>可以根据java自带的jinfo命令：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>jinfo <span class="nt">-flags</span> pid
+</code></pre></div></div>
+
+<p>来查看jar 启动后使用的是什么gc、新生代、老年代分批的内存都是多少，示例如下：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">-XX</span>:CICompilerCount<span class="o">=</span>3 <span class="nt">-XX</span>:InitialHeapSize<span class="o">=</span>234881024 <span class="nt">-XX</span>:MaxHeapSize<span class="o">=</span>3743416320 <span class="nt">-XX</span>:MaxNewSize<span class="o">=</span>1247805440 <span class="nt">-XX</span>:MinHeapDeltaBytes<span class="o">=</span>524288 <span class="nt">-XX</span>:NewSize<span class="o">=</span>78118912 <span class="nt">-XX</span>:OldSize<span class="o">=</span>156762112 <span class="nt">-XX</span>:+UseCompressedClassPointers <span class="nt">-XX</span>:+UseCompressedOops <span class="nt">-XX</span>:+UseFastUnorderedTimeStamps <span class="nt">-XX</span>:+UseParallelGC
+</code></pre></div></div>
+
+<ul>
+  <li><code class="highlighter-rouge">-XX:CICompilerCount</code> ：最大的并行编译数</li>
+  <li><code class="highlighter-rouge">-XX:InitialHeapSize</code> 和 <code class="highlighter-rouge">-XX:MaxHeapSize</code> ：指定JVM的初始和最大堆内存大小</li>
+  <li><code class="highlighter-rouge">-XX:MaxNewSize</code> ： JVM堆区域新生代内存的最大可分配大小</li>
+  <li>…</li>
+  <li><code class="highlighter-rouge">-XX:+UseParallelGC</code> ：垃圾回收使用Parallel收集器</li>
+</ul>
+
+<h3 id="如何重启">如何重启</h3>
+
+<p><strong>简单粗暴</strong></p>
+
+<p>直接kill掉进程再次启动jar包</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ps <span class="nt">-ef</span>|grep java 
+<span class="c">##拿到对于Java程序的pid</span>
+<span class="nb">kill</span> <span class="nt">-9</span> pid
+<span class="c">## 再次重启</span>
+Java <span class="nt">-jar</span>  xxxx.jar
+</code></pre></div></div>
+
+<p>当然这种方式比较传统和暴力，所以建议大家使用下面的方式来管理</p>
+
+<p><strong>脚本执行</strong></p>
+
+<p>如果使用的是maven,需要包含以下的配置</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;plugin&gt;</span>
+    <span class="nt">&lt;groupId&gt;</span>org.springframework.boot<span class="nt">&lt;/groupId&gt;</span>
+    <span class="nt">&lt;artifactId&gt;</span>spring-boot-maven-plugin<span class="nt">&lt;/artifactId&gt;</span>
+    <span class="nt">&lt;configuration&gt;</span>
+        <span class="nt">&lt;executable&gt;</span>true<span class="nt">&lt;/executable&gt;</span>
+    <span class="nt">&lt;/configuration&gt;</span>
+<span class="nt">&lt;/plugin&gt;</span>
+</code></pre></div></div>
+
+<p>如果使用是gradle，需要包含下面配置</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>springBoot <span class="o">{</span>
+    executable <span class="o">=</span> <span class="nb">true</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>启动方式：</p>
+
+<p>1、 可以直接<code class="highlighter-rouge">./yourapp.jar</code> 来启动</p>
+
+<p>2、注册为服务</p>
+
+<p>也可以做一个软链接指向你的jar包并加入到<code class="highlighter-rouge">init.d</code>中，然后用命令来启动。</p>
+
+<p>init.d 例子:</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">ln</span> <span class="nt">-s</span> /var/yourapp/yourapp.jar /etc/init.d/yourapp
+<span class="nb">chmod</span> +x /etc/init.d/yourapp
+</code></pre></div></div>
+
+<p>这样就可以使用<code class="highlighter-rouge">stop</code>或者是<code class="highlighter-rouge">restart</code>命令去管理你的应用。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/etc/init.d/yourapp start|stop|restart
+</code></pre></div></div>
+
+<p>或者</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>service yourapp start|stop|restart
+</code></pre></div></div>
+
+<p>到此 springboot项目如何测试、联调和打包投产均已经介绍完，以后可以找时间研究一下springboot的自动化运维，以及spring boot 和docker相结合的使用。</p>
+
+<p><strong><a href="https://github.com/ityouknow/spring-boot-examples">示例代码-github</a></strong></p>
+
+<p><strong><a href="https://gitee.com/ityouknow/spring-boot-examples">示例代码-码云</a></strong></p>
+
+<p><strong>参考:</strong>
+<a href="http://docs.spring.io/spring-boot/docs/current/reference/html/deployment-install.html">Installing Spring Boot applications</a></p>
+
+<hr />
+
+<p><strong>作者：纯洁的微笑</strong><br />
+<strong>出处：<a href="http://www.ityouknow.com/springboot/2017/05/09/springboot-deploy.html">http://www.ityouknow.com/</a></strong>    <br />
+<strong>版权归作者所有，转载请注明出处</strong></p>
+:ET

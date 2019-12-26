@@ -1,0 +1,105 @@
+I"�#<p>在我们实际工作中，总会遇到这样需求，在项目启动的时候需要做一些初始化的操作，比如初始化线程池，提前加载好加密证书等。今天就给大家介绍一个 Spring Boot 神器，专门帮助大家解决项目启动初始化资源操作。</p>
+
+<p>这个神器就是 <code class="highlighter-rouge">CommandLineRunner</code>，<code class="highlighter-rouge">CommandLineRunner</code> 接口的 <code class="highlighter-rouge">Component</code> 会在所有 <code class="highlighter-rouge">Spring Beans </code>都初始化之后，<code class="highlighter-rouge">SpringApplication.run() </code>之前执行，非常适合在应用程序启动之初进行一些数据初始化的工作。</p>
+
+<p>接下来我们就运用案例测试它如何使用，在测试之前在启动类加两行打印提示，方便我们识别 <code class="highlighter-rouge">CommandLineRunner</code> 的执行时机。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@SpringBootApplication</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">CommandLineRunnerApplication</span> <span class="o">{</span>
+	<span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="nc">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="o">{</span>
+		<span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"The service to start."</span><span class="o">);</span>
+		<span class="nc">SpringApplication</span><span class="o">.</span><span class="na">run</span><span class="o">(</span><span class="nc">CommandLineRunnerApplication</span><span class="o">.</span><span class="na">class</span><span class="o">,</span> <span class="n">args</span><span class="o">);</span>
+		<span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"The service has started."</span><span class="o">);</span>
+	<span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>接下来我们直接创建一个类继承 <code class="highlighter-rouge">CommandLineRunner</code> ，并实现它的 <code class="highlighter-rouge">run()</code> 方法。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Component</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">Runner</span> <span class="kd">implements</span> <span class="nc">CommandLineRunner</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">(</span><span class="nc">String</span><span class="o">...</span> <span class="n">args</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"The Runner start to initialize ..."</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>我们在 <code class="highlighter-rouge">run()</code> 方法中打印了一些参数来看出它的执行时机。完成之后启动项目进行测试：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+The service to start.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::        (v2.0.0.RELEASE)
+...
+2018-04-21 22:21:34.706  INFO 27016 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+2018-04-21 22:21:34.710  INFO 27016 --- [           main] com.neo.CommandLineRunnerApplication     : Started CommandLineRunnerApplication in 3.796 seconds (JVM running for 5.128)
+The Runner start to initialize ...
+The service has started.
+</code></pre></div></div>
+
+<p>根据控制台的打印信息我们可以看出 <code class="highlighter-rouge">CommandLineRunner</code> 中的方法会在 Spring Boot 容器加载之后执行，执行完成后项目启动完成。</p>
+
+<p>如果我们在启动容器的时候需要初始化很多资源，并且初始化资源相互之间有序，那如何保证不同的 <code class="highlighter-rouge">CommandLineRunner</code> 的执行顺序呢？Spring Boot 也给出了解决方案。那就是使用 <code class="highlighter-rouge">@Order</code> 注解。</p>
+
+<p>我们创建两个 <code class="highlighter-rouge">CommandLineRunner</code> 的实现类来进行测试：</p>
+
+<p>第一个实现类：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Component</span>
+<span class="nd">@Order</span><span class="o">(</span><span class="mi">1</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">OrderRunner1</span> <span class="kd">implements</span> <span class="nc">CommandLineRunner</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">(</span><span class="nc">String</span><span class="o">...</span> <span class="n">args</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"The OrderRunner1 start to initialize ..."</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>第二个实现类：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@Component</span>
+<span class="nd">@Order</span><span class="o">(</span><span class="mi">2</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">OrderRunner2</span> <span class="kd">implements</span> <span class="nc">CommandLineRunner</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">(</span><span class="nc">String</span><span class="o">...</span> <span class="n">args</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"The OrderRunner2 start to initialize ..."</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>添加完成之后重新启动，观察执行顺序：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+The service to start.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::        (v2.0.0.RELEASE)
+...
+2018-04-21 22:21:34.706  INFO 27016 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+2018-04-21 22:21:34.710  INFO 27016 --- [           main] com.neo.CommandLineRunnerApplication     : Started CommandLineRunnerApplication in 3.796 seconds (JVM running for 5.128)
+The OrderRunner1 start to initialize ...
+The OrderRunner2 start to initialize ...
+The Runner start to initialize ...
+The service has started.
+</code></pre></div></div>
+
+<p>通过控制台的输出我们发现，添加 <code class="highlighter-rouge">@Order</code> 注解的实现类最先执行，并且<code class="highlighter-rouge">@Order()</code>里面的值越小启动越早。</p>
+
+<p>在实践中，使用<code class="highlighter-rouge">ApplicationRunner</code>也可以达到相同的目的，两着差别不大。看来使用 Spring Boot 解决初始化资源的问题非常简单。</p>
+
+<p><strong><a href="https://github.com/ityouknow/spring-boot-examples">示例代码-github</a></strong></p>
+
+<p><strong><a href="https://gitee.com/ityouknow/spring-boot-examples">示例代码-码云</a></strong></p>
+:ET

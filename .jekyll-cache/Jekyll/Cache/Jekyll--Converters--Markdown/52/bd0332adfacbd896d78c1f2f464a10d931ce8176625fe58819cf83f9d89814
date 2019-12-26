@@ -1,0 +1,50 @@
+I"!<p>收集Spring Cloud相关的学习资料</p>
+
+<blockquote>
+  <p>学习Spring Cloud首先需要了解Spring Boot，不了解Spring Boot的同学戳这里<a href="http://www.ityouknow.com/springboot/2015/12/30/springboot-collect.html">Spring Boot学习资料汇总</a></p>
+</blockquote>
+
+<p><strong>重点推荐：<a href="http://springcloud.fun/">Spring Cloud 中文索引</a></strong></p>
+
+<h2 id="推荐博客">推荐博客</h2>
+
+<ul>
+  <li>
+    <p><a href="http://www.ityouknow.com/spring-cloud">纯洁的微笑</a></p>
+  </li>
+  <li>
+    <p><a href="http://blog.didispace.com/categories/Spring-Cloud/">程序猿DD</a></p>
+  </li>
+  <li>
+    <p><a href="http://blog.csdn.net/liaokailin/article/category/6212338">liaokailin的专栏</a></p>
+  </li>
+  <li>
+    <p><a href="http://www.itmuch.com/">周立 Spring Cloud</a></p>
+  </li>
+  <li>
+    <p><a href="http://blog.csdn.net/column/details/15197.html">方志朋 Spring Cloud 专栏</a></p>
+  </li>
+  <li>
+    <p><a href="http://xujin.org/categories/%E8%B7%9F%E6%88%91%E5%AD%A6Spring-Cloud/">许进 跟我学Spring Cloud</a></p>
+  </li>
+</ul>
+
+<h2 id="推荐网站">推荐网站</h2>
+
+<ul>
+  <li><a href="http://projects.spring.io/spring-cloud/">Spring Cloud 官网</a></li>
+</ul>
+
+<h2 id="开源代码">开源代码</h2>
+
+<ul>
+  <li>
+    <p><a href="https://github.com/ityouknow/spring-cloud-examples">spring-cloud-examples</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/dyc87112/SpringCloud-Learning">SpringCloud-Learning</a></p>
+  </li>
+</ul>
+
+<p><strong>欢迎大家推荐更多的资料</strong></p>
+:ET

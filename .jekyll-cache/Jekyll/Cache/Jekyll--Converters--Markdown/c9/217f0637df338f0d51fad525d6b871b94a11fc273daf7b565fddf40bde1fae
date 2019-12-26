@@ -1,0 +1,115 @@
+I"�<h2 id="create-a-blog-site">Create a blog site</h2>
+<p>For blogging, we have to specify a local folder as the root of your blog site with the commands below:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> cd [your local folder]   
+ jekyll new . 
+</code></pre></div></div>
+
+<p>As one of the results of running ‘Jekyll new .’, the skeleton of your blog site with a sample blog is created in the specified folder.</p>
+
+<h2 id="running-your-blog-site">Running your blog site</h2>
+<p>Theoretically Jekyll is all set and you’re supposed to host your sample site with Jekyll management process right now.<br />
+Try the command below:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>jekyll serve
+</code></pre></div></div>
+
+<p>If you are able to see similar messages as below, you are lucky:</p>
+
+<blockquote>
+  <p>Configuration file: C:/<strong>/Blog/_config.yml<br />
+            Source: C:/</strong>/Blog<br />
+       Destination: C:/<strong>/Blog/_site<br />
+Incremental build: disabled. Enable with –incremental<br />
+      Generating…<br />
+                    done in 1.413 seconds.<br />
+  Please add the following to your Gemfile to avoid polling for changes:<br />
+    gem ‘wdm’, ‘&gt;= 0.1.0’ if Gem.win_platform?<br />
+Auto-regeneration: enabled for ‘C:/</strong>/Blog’<br />
+Configuration file: C:/**/Blog/_config.yml<br />
+    Server address: http://127.0.0.1:4000/<br />
+  Server running… press ctrl-c to stop.</p>
+</blockquote>
+
+<p>it says your sample site is being served at : <strong>http://127.0.0.1:4000/</strong><br />
+Check it with your browser:  <br />
+<img src="/assets/images/2016/BrowsingSampleSite.PNG" alt="Sample Blog Site in Browser" /></p>
+
+<p>However, I am not a lucky guy most of time :(
+The 1st time I run <code class="highlighter-rouge">jekyll serve</code>, I got errors below:</p>
+
+<blockquote>
+  <p>C:/Ruby23/lib/ruby/2.3.0/rubygems/core_ext/kernel_require.rb:55:in <code class="highlighter-rouge">require': cannot load such file -- bundler (LoadError)  
+        from C:/Ruby23/lib/ruby/2.3.0/rubygems/core_ext/kernel_require.rb:55:in </code>require’<br />
+        from C:/Ruby23/lib/ruby/gems/2.3.0/gems/jekyll-3.2.1/lib/jekyll/plugin_manager.rb:34:in <code class="highlighter-rouge">require_from_bundler'  
+        from C:/Ruby23/lib/ruby/gems/2.3.0/gems/jekyll-3.2.1/exe/jekyll:9:in </code>&lt;top (required)&gt;’<br />
+        from C:/Ruby23/bin/jekyll:23:in <code class="highlighter-rouge">load'  
+        from C:/Ruby23/bin/jekyll:23:in </code>&lt;main&gt;’</p>
+</blockquote>
+
+<p><em>Bundler</em> is a gem dependency of Jekyll which is supposed to be installed with Jekyll. Apparently, it’s not. After installing <em>Bundler</em> with the command bellow, I got rid of above errors:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code> gem install bundler  
+</code></pre></div></div>
+
+<p>But another dependency that is also supposed to be installed with Jekyll came out:</p>
+
+<blockquote>
+  <p>C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-.12.5/lib/bundler/resolver.rb:356:in block in verify_gemfile_dependencies_are_found!:<br />
+Could not find gem minima x86-mingw32 in any of the gem sources listed in your Gemfile or available on this machine.(Bundler::GemNotFound)<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/resolver.rb:331:in each<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/resolver.rb:331:in verify_gemfile_dependencies_are_found!<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/resolver.rb:200:in start<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/resolver.rb:184:in resolve<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/definition.rb:200:in resolve<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/definition.rb:140:in specs<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/definition.rb:185:in specs_for<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/definition.rb:174:in requested_specs<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/environment.rb:19:in requested_specs<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler/runtime.rb:14:in setup<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/bundler-1.12.5/lib/bundler.rb:95:in setup<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/jekyll-3.2.1/lib/jekyll/plugin_manager.rb:36:in require_from_bundler<br />
+from C:/Ruby23/lib/ruby/gems/2.3.0/gems/jekyll-3.2.1/exe/jekyll:9:in &lt;top (required)&gt;<br />
+from C:/Ruby23/bin/jekyll:23:in load<br />
+from C:/Ruby23/bin/jekyll:23:in &lt;main&gt;</p>
+</blockquote>
+
+<p>Finally, my blog site is able to be served successfully after I installed the dependency ‘<strong>minima</strong>’.</p>
+
+<h2 id="else">else</h2>
+
+<p>in some case ,you must change gem source</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gem sources --add http://gems.ruby-china.org/ --remove https://rubygems.org/
+</code></pre></div></div>
+
+<p>congig bundle  miroor</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bundle config mirror.https://rubygems.org http://gems.ruby-china.org
+</code></pre></div></div>
+
+<p>then  excute bundle command</p>
+
+<p>now, find a nather error</p>
+
+<blockquote>
+  <p>jekyll service
+WARN: Unresolved specs during Gem::Specification.reset:
+      rouge (~&gt; 1.7)
+      jekyll-watch (~&gt; 1.1)
+WARN: Clearing out unresolved specs.
+Please report a bug if this causes problems.
+fatal: ‘jekyll service’ could not be found. You may need to install the jekyll-service gem or a related gem to be able to use this subcommand.</p>
+</blockquote>
+
+<p>then  excute bundle install command</p>
+
+<p>other command :</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>netstat –ano|findstr “4000”
+
+bundle exec jekyll serve
+</code></pre></div></div>
+
+<p>done!!</p>
+:ET

@@ -1,0 +1,2 @@
+I"�<p>上次写了一篇文章叫<a href="https://mp.weixin.qq.com/s/vnWXpH5pv-FAzLZfbgTGvg">Spring Cloud在国内中小型公司能用起来吗?</a>介绍了Spring Cloud是否能在中小公司使用起来，这篇文章是它的姊妹篇。其实我们在这条路上已经走了一年多，从16年初到现在。在使用Spring Cloud之前我们对微服务实践是没有太多的体会和经验的。从最初的开源软件<a href="https://github.com/cloudfavorites/favorites-web">云收藏</a>来熟悉Spring Boot，到项目中的慢慢使用，再到最后全面拥抱Spring Cloud。这篇文章就给大家介绍一下我们使用Spring Boot/Cloud一年多的经验。</p>
+:ET
