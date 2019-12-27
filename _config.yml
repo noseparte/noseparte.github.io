@@ -14,9 +14,9 @@ keywords: Java、SpringBoot、Netty、MySQL、Redis、CentOS
 encoding: "utf-8"
 favicon: favicon.ico
 
-repository: kokoyuo/kokoyuo.github.io
-github_url: https://github.com/kokoyuo
-url: https://kokoyuo.github.io
+repository: noseparte/noseparte.github.io
+github_url: https://github.com/noseparte
+url: https://noseparte.github.io
 
 ## Gem
 plugins:
