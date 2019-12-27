@@ -12,7 +12,7 @@ name: Noseparte
 description: '拓展知识广度的同时深究所擅长领域的深度。本社区主要的技术内容涉及Java基础、Spring全家桶系列、Netty通信、数据库以及CentOS。还有不定期分享手游开发中的心得与技术解决方案。'
 keywords: Java、SpringBoot、Netty、MySQL、Redis、CentOS
 encoding: "utf-8"
-favicon: favicon.png
+favicon: favicon.ico
 
 repository: kokoyuo/kokoyuo.github.io
 github_url: https://github.com/kokoyuo
