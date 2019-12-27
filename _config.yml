@@ -115,11 +115,6 @@ labels:
 classes:
 
 -
- href: /test.html
- name: 测试
- describe: 测试Yummy-Jekyll
-
--
  href: /life.html
  name: 我的故事
  describe: 生活就是故事，故事就是生活
