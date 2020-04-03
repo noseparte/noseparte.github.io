@@ -1,0 +1,394 @@
+I"��<p>…</p>
+<h1 id="java-线程池的正确使用姿势">Java 线程池的正确使用姿势</h1>
+
+<ul>
+  <li><a href="#线程池threadPool">ThreadPool 线程池的定义? 如何创建?</a></li>
+  <li><a href="#threadPoolExecutor">配置 ThreadPoolExecutor</a></li>
+  <li><a href="#blockingQueue">管理任务队列 BlockingQueue</a></li>
+  <li><a href="#rejectedExecutionHandler">饱和策略 RejectedExecutionHandler</a></li>
+  <li><a href="#executors">[不推荐] 使用Executors工厂模式创建线程池</a></li>
+  <li><a href="#executorService">ExecutorService的生命周期</a></li>
+  <li><a href="#threadFactory">线程工厂 ThreadFactory</a>
+    <ul>
+      <li><a href="#defaultThreadFactory">DefaultThreadFactory</a></li>
+      <li><a href="#privilegedThreadFactory">PrivilegedThreadFactory</a></li>
+      <li><a href="#threadFactoryBuilder">[推荐] 使用guava的 ThreadFactoryBuilder</a></li>
+    </ul>
+  </li>
+  <li><a href="#end">创建线程池的正确姿势</a></li>
+</ul>
+
+<h2 id="线程池-threadpool">线程池 ThreadPool</h2>
+
+<blockquote>
+  <p><strong>1. 线程池的定义：</strong></p>
+</blockquote>
+
+<p>（摘自<a href="https://zq-mobile.zhaopin.com/mAnswer/6161026/">职Q</a>）在面向对象编程中，创建和销毁对象是很费时间的，因为创建一个对象要获取内存资源或者其它更多资源。在Java中更是如此，虚拟机将试图跟踪每一个对象，以便能够在对象销毁后进行垃圾回收。所以提高服务程序效率的一个手段就是尽可能减少创建和销毁对象的次数，特别是一些很耗资源的对象创建和销毁，这就是”池化资源”技术产生的原因。线程池顾名思义就是事先创建若干个可执行的线程放入一个池（容器）中，需要的时候从池中获取线程不用自行创建，使用完毕不需要销毁线程而是放回池中，从而减少创建和销毁线程对象的开销。</p>
+
+<blockquote>
+  <p><strong>2. 如何创建线程池：</strong></p>
+</blockquote>
+
+<ul>
+  <li><strong>使用 ThreadPoolExecutor：</strong>
+ThreadPoolExecutor是一个灵活的、稳定的线程池，允许进行定制。</li>
+  <li><strong>使用 Executors：</strong>
+Executors中的静态工厂方法之一来创建线程池：
+<strong>newSingleThreadExecutor：</strong> 是一个单线程的Executor，它创建单个工作者线程来执行任务，如果这个线程异常结束，会创建另一个线程来替代。newSingleThreadExecutor能确保依照任务在队列中的顺序来串行执行(例如 FIFO、LIFO、优先级)。
+<strong>newFixedThreadPool：</strong> 将创建一个固定长度的线程池，每当提交一个任务时就创建一个线程，直到达到线程池的最大数量，这时线程池的规模将不再发生变化(如果某个线程由于发生了未预期的Exception而结束，那么线程池会补充一个新的线程)。
+<strong>newCachedThreadPool：</strong> 将创建一个可缓存的线程池，如果线程池的当前规模超过了处理需求时，那么将回收空闲的线程，而当需求增加时，则可以添加新的线程，线程池规模不存在任何限制。
+<strong>newScheduledThreadExecutor：</strong> 创建了一个固定长度的线程池，而且以延迟或定时的方式来执行任务，类似于Timer。</li>
+</ul>
+
+<h2 id="配置-threadpoolexecutor">配置 ThreadPoolExecutor</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadPoolExecutor</span> <span class="o">{</span>
+    
+    <span class="c1">// 线程池维护的最小线程数</span>
+    <span class="kd">private</span> <span class="kd">volatile</span> <span class="kt">int</span> <span class="n">corePoolSize</span><span class="o">;</span>
+    <span class="c1">// 线程池可容纳线程数的最大值</span>
+    <span class="kd">private</span> <span class="kd">volatile</span> <span class="kt">int</span> <span class="n">maximumPoolSize</span><span class="o">;</span>
+    <span class="c1">// 线程池达到阈值后，新的线程需要等待的时间</span>
+    <span class="kd">private</span> <span class="kd">volatile</span> <span class="kt">long</span> <span class="n">keepAliveTime</span><span class="o">;</span>
+    <span class="c1">// 以工厂模式创建新的线程</span>
+    <span class="kd">private</span> <span class="kd">volatile</span> <span class="nc">ThreadFactory</span> <span class="n">threadFactory</span><span class="o">;</span>
+    <span class="c1">// 上下文</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">AccessControlContext</span> <span class="n">acc</span><span class="o">;</span>
+    <span class="c1">// 阻塞队列</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">BlockingQueue</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="n">workQueue</span><span class="o">;</span>
+    <span class="c1">// 拒绝策略</span>
+    <span class="kd">private</span> <span class="kd">volatile</span> <span class="nc">RejectedExecutionHandler</span> <span class="n">handler</span><span class="o">;</span>
+    
+    <span class="cm">/**
+     * ThreadPoolExecutor的核心构造器
+     */</span>
+    <span class="kd">public</span> <span class="nf">ThreadPoolExecutor</span><span class="o">(</span><span class="kt">int</span> <span class="n">corePoolSize</span><span class="o">,</span><span class="err"> </span>
+                                       <span class="kt">int</span> <span class="n">maximumPoolSize</span><span class="o">,</span><span class="err"> </span>
+                                       <span class="kt">long</span> <span class="n">keepAliveTime</span><span class="o">,</span>
+                                       <span class="nc">TimeUnit</span> <span class="n">unit</span><span class="o">,</span><span class="err">  </span>
+                                       <span class="nc">BlockingQueue</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="n">workQueue</span><span class="o">,</span>
+                                       <span class="nc">ThreadFactory</span> <span class="n">threadFactory</span><span class="o">,</span>
+                                       <span class="nc">RejectedExecutionHandler</span> <span class="n">handler</span><span class="o">)</span> <span class="o">{</span>
+           <span class="k">if</span> <span class="o">(</span><span class="n">corePoolSize</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span><span class="err">   </span> 
+              <span class="n">maximumPoolSize</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="o">||</span><span class="err">   </span>
+              <span class="n">maximumPoolSize</span> <span class="o">&lt;</span> <span class="n">corePoolSize</span> <span class="o">||</span><span class="err">   </span> 
+              <span class="n">keepAliveTime</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span><span class="err">   </span> <span class="k">throw</span> <span class="k">new</span> <span class="nc">IllegalArgumentException</span><span class="o">();</span>
+           <span class="k">if</span> <span class="o">(</span><span class="n">workQueue</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="n">threadFactory</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="n">handler</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span><span class="err">   </span> 
+              <span class="k">throw</span> <span class="k">new</span> <span class="nf">NullPointerException</span><span class="o">();</span>
+           <span class="k">this</span><span class="o">.</span><span class="na">acc</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">getSecurityManager</span><span class="o">()</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">?</span><span class="err">     </span>
+                    <span class="kc">null</span> <span class="o">:</span><span class="err">       </span> 
+                    <span class="nc">AccessController</span><span class="o">.</span><span class="na">getContext</span><span class="o">();</span>
+           <span class="k">this</span><span class="o">.</span><span class="na">corePoolSize</span> <span class="o">=</span> <span class="n">corePoolSize</span><span class="o">;</span>
+           <span class="k">this</span><span class="o">.</span><span class="na">maximumPoolSize</span> <span class="o">=</span> <span class="n">maximumPoolSize</span><span class="o">;</span>
+           <span class="k">this</span><span class="o">.</span><span class="na">workQueue</span> <span class="o">=</span> <span class="n">workQueue</span><span class="o">;</span>
+           <span class="k">this</span><span class="o">.</span><span class="na">keepAliveTime</span> <span class="o">=</span> <span class="n">unit</span><span class="o">.</span><span class="na">toNanos</span><span class="o">(</span><span class="n">keepAliveTime</span><span class="o">);</span>
+           <span class="k">this</span><span class="o">.</span><span class="na">threadFactory</span> <span class="o">=</span> <span class="n">threadFactory</span><span class="o">;</span>
+           <span class="k">this</span><span class="o">.</span><span class="na">handler</span> <span class="o">=</span> <span class="n">handler</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h2 id="管理任务队列-blockingqueue">管理任务队列 BlockingQueue</h2>
+
+<p><strong>ThreadPoolExecutor</strong>允许提供一个<strong>BlockingQueue</strong>来保存等待执行的任务。基本的任务排队方法有3种：无界队列、有界队列和同步移交(Synchronous Handoff)。</p>
+
+<ul>
+  <li><strong>无界队列：</strong> 队列大小无限制，常用的为无界的LinkedBlockingQueue，使用该队列做为阻塞队列时要尤其当心，当任务耗时较长时可能会导致大量新任务在队列中堆积最终导致OOM。
+阅读代码发现，Executors.newFixedThreadPool 采用就是 LinkedBlockingQueue，而楼主踩到的就是这个坑，当QPS很高，发送数据很大，大量的任务被添加到这个无界LinkedBlockingQueue 中，导致cpu和内存飙升服务器挂掉。</li>
+  <li><strong>有界队列：</strong> 常用的有两类，
+一类是遵循FIFO原则的队列如ArrayBlockingQueue与有界的LinkedBlockingQueue，
+另一类是优先级队列如PriorityBlockingQueue。PriorityBlockingQueue中的优先级由任务的Comparator决定。
+使用有界队列时队列大小需和线程池大小互相配合，线程池较小有界队列较大时可减少内存消耗，降低cpu使用率和上下文切换，但是可能会限制系统吞吐量。在我们的修复方案中，选择的就是这个类型的队列，虽然会有部分任务被丢失，但是我们线上是排序日志搜集任务，所以对部分对丢失是可以容忍的。</li>
+  <li><strong>同步移交队列：</strong> 如果不希望任务在队列中等待而是希望将任务直接移交给工作线程，可使用SynchronousQueue作为等待队列。SynchronousQueue不是一个真正的队列，而是一种线程之间移交的机制。要将一个元素放入SynchronousQueue中，必须有另一个线程正在等待接收这个元素。只有在使用无界线程池或者有饱和策略时才建议使用该队列。</li>
+</ul>
+
+<h2 id="饱和策略-rejectedexecutionhandler">饱和策略 RejectedExecutionHandler</h2>
+
+<blockquote>
+  <p>ThreadPoolExecutor提供如下4种饱和策略:</p>
+</blockquote>
+
+<ul>
+  <li><strong>CallerRunsPolicy</strong> 由调用线程（提交任务的线程）处理该任务</li>
+  <li><strong>AbortPolicy</strong> 丢弃任务并直接抛出RejectedExecutionException异常(默认的线程池拒绝策略)</li>
+  <li><strong>DiscardPolicy</strong> 仅丢弃任务并不抛出异常</li>
+  <li><strong>DiscardOldestPolicy</strong> 丢弃队列最前面的任务，然后重新提交被拒绝的任务</li>
+</ul>
+
+<p>自定义饱和策略，只需实现<strong>RejectedExecutionHandler</strong>接口并重写<strong>void rejectedExecution(Runnable r, ThreadPoolExecutor executor)</strong> 方法</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadPoolExecutor</span><span class="o">{</span>
+
+    <span class="cm">/** 
+     *  默认的线程池拒绝策略 AbortPolicy
+     */</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">RejectedExecutionHandler</span> <span class="n">defaultHandler</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AbortPolicy</span><span class="o">();</span>
+
+    <span class="cm">/* ThreadPoolExecutor提供如下4中拒绝策略: */</span>
+    <span class="cm">/**
+     * 由调用线程（提交任务的线程）处理该任务
+     */</span>
+   <span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">CallerRunsPolicy</span> <span class="kd">implements</span> <span class="nc">RejectedExecutionHandler</span> <span class="o">{}</span>
+ 
+    <span class="cm">/** 
+     *  丢弃任务并直接抛出RejectedExecutionException异常
+     */</span>
+   <span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">AbortPolicy</span> <span class="kd">implements</span> <span class="nc">RejectedExecutionHandler</span> <span class="o">{}</span>
+ 
+   <span class="cm">/** 
+    * 仅丢弃任务并不抛出异常
+    */</span>
+   <span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">DiscardPolicy</span> <span class="kd">implements</span> <span class="nc">RejectedExecutionHandler</span> <span class="o">{}</span>
+   
+   <span class="cm">/** 
+    * 丢弃队列最前面的任务，然后重新提交被拒绝的任务
+    */</span>
+   <span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">DiscardOldestPolicy</span> <span class="kd">implements</span> <span class="nc">RejectedExecutionHandler</span> <span class="o">{}</span>
+
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h2 id="executors不推荐">Executors(不推荐)</h2>
+
+<p>在阿里巴巴Java开发手册中提到，使用Executors创建线程池可能会导致OOM(OutOfMemory ,内存溢出)</p>
+
+<p><img src="https://github.com/AwakenCN/Almost-Famous/blob/aedc643ad298225a54aa1af19e877e45f03f0ff9/famous-static/images/blockingQueue.png?raw=true" alt="BlockingQueue致使OOM示意图" /></p>
+
+<h2 id="executorservice">ExecutorService</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">ExecutorService</span> <span class="kd">extends</span> <span class="nc">Executor</span> <span class="o">{</span><span class="err">  </span>
+     <span class="kt">void</span> <span class="nf">shutdown</span><span class="o">();</span><span class="err">   </span> 
+     <span class="nc">List</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="nf">shutdownNow</span><span class="o">();</span><span class="err">   </span> 
+     <span class="kt">boolean</span> <span class="nf">isShutdown</span><span class="o">();</span><span class="err">   </span> 
+     <span class="kt">boolean</span> <span class="nf">isTerminated</span><span class="o">();</span><span class="err">   </span> 
+     <span class="kt">boolean</span> <span class="nf">awaitTermination</span><span class="o">(</span><span class="kt">long</span> <span class="n">timeout</span><span class="o">,</span> <span class="nc">TimeUnit</span> <span class="n">unit</span><span class="o">)</span><span class="err"> </span><span class="kd">throws</span> <span class="nc">InterruptedException</span><span class="o">;</span><span class="err">  </span>
+     <span class="c1">// .......其他用于任务提交的方法   </span>
+<span class="o">}</span>    
+</code></pre></div></div>
+
+<p>为了解决执行服务的生命周期问题，
+<strong>ExecutorService</strong>拓展了Executor接口，添加了一些用于生命周期管理的方法。
+<strong>ExecutorService</strong>的生命周期有3种状态：运行、关闭和已终止。
+<strong>ExecutorService</strong>在初始创建时处于运行状态。
+<strong>shutdown</strong>方法将执行平缓的关闭过程：不再接受新的任务，同时等待已经提交的任务执行完成——包括那些还未开始执行的任务。
+<strong>shutdownNow</strong>方法将执行粗暴的关闭过程：它将尝试取消所有运行中的任务，并且不再启动队列中尚未开始执行的任务。</p>
+
+<h2 id="threadfactory">ThreadFactory</h2>
+
+<h3 id="defaultthreadfactory">DefaultThreadFactory</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="cm">/** * The default thread factory */</span>
+<span class="kd">static</span> <span class="kd">class</span> <span class="nc">DefaultThreadFactory</span> <span class="kd">implements</span> <span class="nc">ThreadFactory</span> <span class="o">{</span><span class="err">  </span>
+
+        <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">AtomicInteger</span> <span class="n">poolNumber</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">(</span><span class="mi">1</span><span class="o">);</span><span class="err">   </span> 
+        <span class="kd">private</span> <span class="kd">final</span> <span class="nc">ThreadGroup</span> <span class="n">group</span><span class="o">;</span><span class="err">   </span> 
+        <span class="kd">private</span> <span class="kd">final</span> <span class="nc">AtomicInteger</span> <span class="n">threadNumber</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">(</span><span class="mi">1</span><span class="o">);</span><span class="err">   </span> 
+        <span class="kd">private</span> <span class="kd">final</span> <span class="nc">String</span> <span class="n">namePrefix</span><span class="o">;</span><span class="err">   </span> 
+    
+        <span class="nc">DefaultThreadFactory</span><span class="o">()</span> <span class="o">{</span><span class="err">       </span> 
+            <span class="nc">SecurityManager</span> <span class="n">s</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">getSecurityManager</span><span class="o">();</span><span class="err">       </span> 
+            <span class="n">group</span> <span class="o">=</span> <span class="o">(</span><span class="n">s</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">?</span> <span class="n">s</span><span class="o">.</span><span class="na">getThreadGroup</span><span class="o">()</span> <span class="o">:</span><span class="err"> </span><span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">().</span><span class="na">getThreadGroup</span><span class="o">();</span><span class="err">       </span> 
+            <span class="n">namePrefix</span> <span class="o">=</span> <span class="s">"pool-"</span> <span class="o">+</span><span class="err">                     </span> 
+                              <span class="n">poolNumber</span><span class="o">.</span><span class="na">getAndIncrement</span><span class="o">()</span> <span class="o">+</span><span class="err">                    </span> 
+                              <span class="s">"-thread-"</span><span class="o">;</span><span class="err">   </span> 
+        <span class="o">}</span><span class="err">   </span> 
+    
+        <span class="kd">public</span> <span class="nc">Thread</span> <span class="nf">newThread</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span><span class="err">       </span>
+            <span class="nc">Thread</span> <span class="n">t</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Thread</span><span class="o">(</span><span class="n">group</span><span class="o">,</span> <span class="n">r</span><span class="o">,</span><span class="err">                             </span> 
+                            <span class="n">namePrefix</span> <span class="o">+</span> <span class="n">threadNumber</span><span class="o">.</span><span class="na">getAndIncrement</span><span class="o">(),</span>
+                            <span class="mi">0</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">t</span><span class="o">.</span><span class="na">isDaemon</span><span class="o">())</span><span class="err">           </span> 
+                <span class="n">t</span><span class="o">.</span><span class="na">setDaemon</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span><span class="err">       </span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">t</span><span class="o">.</span><span class="na">getPriority</span><span class="o">()</span> <span class="o">!=</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">NORM_PRIORITY</span><span class="o">)</span><span class="err">      </span>
+                <span class="n">t</span><span class="o">.</span><span class="na">setPriority</span><span class="o">(</span><span class="nc">Thread</span><span class="o">.</span><span class="na">NORM_PRIORITY</span><span class="o">);</span><span class="err">       </span>
+            <span class="k">return</span> <span class="n">t</span><span class="o">;</span><span class="err">   </span>
+        <span class="o">}</span>
+<span class="o">}</span>
+
+</code></pre></div></div>
+
+<h3 id="privilegedthreadfactory">PrivilegedThreadFactory</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/**
+ * 权限访问与类加载
+ */</span>
+<span class="kd">static</span> <span class="kd">class</span> <span class="nc">PrivilegedThreadFactory</span> <span class="kd">extends</span> <span class="nc">DefaultThreadFactory</span> <span class="o">{</span><span class="err">   </span> 
+
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">AccessControlContext</span> <span class="n">acc</span><span class="o">;</span><span class="err">   </span> 
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">ClassLoader</span> <span class="n">ccl</span><span class="o">;</span><span class="err">   </span> 
+    <span class="nc">PrivilegedThreadFactory</span><span class="o">()</span> <span class="o">{</span><span class="err">       </span> 
+        <span class="kd">super</span><span class="o">();</span><span class="err">       </span> 
+        <span class="nc">SecurityManager</span> <span class="n">sm</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">getSecurityManager</span><span class="o">();</span><span class="err">       </span> 
+        <span class="k">if</span> <span class="o">(</span><span class="n">sm</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span><span class="err">           </span> 
+            <span class="c1">// Calls to getContextClassLoader from this class           </span>
+            <span class="c1">// never trigger a security check, but we check            </span>
+            <span class="c1">// whether our callers have this permission anyways.            </span>
+            <span class="n">sm</span><span class="o">.</span><span class="na">checkPermission</span><span class="o">(</span><span class="nc">SecurityConstants</span><span class="o">.</span><span class="na">GET_CLASSLOADER_PERMISSION</span><span class="o">);</span><span class="err">           </span> 
+            <span class="c1">// Fail fast            </span>
+            <span class="n">sm</span><span class="o">.</span><span class="na">checkPermission</span><span class="o">(</span><span class="k">new</span> <span class="nc">RuntimePermission</span><span class="o">(</span><span class="s">"setContextClassLoader"</span><span class="o">));</span><span class="err">       </span> 
+        <span class="o">}</span><span class="err">       </span> 
+        <span class="k">this</span><span class="o">.</span><span class="na">acc</span> <span class="o">=</span> <span class="nc">AccessController</span><span class="o">.</span><span class="na">getContext</span><span class="o">();</span><span class="err">       </span> 
+        <span class="k">this</span><span class="o">.</span><span class="na">ccl</span> <span class="o">=</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">().</span><span class="na">getContextClassLoader</span><span class="o">();</span><span class="err">   </span> 
+    <span class="o">}</span><span class="err">   </span> 
+    
+    <span class="kd">public</span> <span class="nc">Thread</span> <span class="nf">newThread</span><span class="o">(</span><span class="kd">final</span> <span class="nc">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span><span class="err">       </span> 
+        <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">newThread</span><span class="o">(</span><span class="k">new</span> <span class="nc">Runnable</span><span class="o">()</span> <span class="o">{</span><span class="err">           </span> 
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span><span class="err">               </span> 
+                <span class="nc">AccessController</span><span class="o">.</span><span class="na">doPrivileged</span><span class="o">(</span><span class="k">new</span> <span class="nc">PrivilegedAction</span><span class="o">&lt;</span><span class="nc">Void</span><span class="o">&gt;()</span> <span class="o">{</span><span class="err">                   </span> 
+                    <span class="kd">public</span> <span class="nc">Void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span><span class="err">   </span>
+                        <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">().</span><span class="na">setContextClassLoader</span><span class="o">(</span><span class="n">ccl</span><span class="o">);</span><span class="err">                       </span> 
+                        <span class="n">r</span><span class="o">.</span><span class="na">run</span><span class="o">();</span><span class="err">                       </span> 
+                         <span class="k">return</span> <span class="kc">null</span><span class="o">;</span><span class="err">                   </span>
+                    <span class="o">}</span><span class="err">               </span> 
+                <span class="o">},</span> <span class="n">acc</span><span class="o">);</span><span class="err">           </span> 
+            <span class="o">}</span><span class="err">       </span> 
+        <span class="o">});</span><span class="err">   </span> 
+    <span class="o">}</span>
+<span class="o">}</span>
+
+</code></pre></div></div>
+
+<h3 id="使用guava的-threadfactorybuilder">使用guava的 ThreadFactoryBuilder</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadFactoryBuilder</span><span class="o">{</span>
+
+    <span class="kd">private</span> <span class="kd">static</span> <span class="nc">ThreadFactory</span> <span class="nf">doBuild</span><span class="o">(</span><span class="nc">ThreadFactoryBuilder</span> <span class="n">builder</span><span class="o">)</span> <span class="o">{</span><span class="err"> </span> 
+        <span class="kd">final</span> <span class="nc">String</span> <span class="n">nameFormat</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="na">nameFormat</span><span class="o">;</span><span class="err"> </span> 
+        <span class="kd">final</span> <span class="nc">Boolean</span> <span class="n">daemon</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="na">daemon</span><span class="o">;</span><span class="err"> </span> 
+        <span class="kd">final</span> <span class="nc">Integer</span> <span class="n">priority</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="na">priority</span><span class="o">;</span><span class="err"> </span> 
+        <span class="kd">final</span> <span class="nc">UncaughtExceptionHandler</span> <span class="n">uncaughtExceptionHandler</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="na">uncaughtExceptionHandler</span><span class="o">;</span><span class="err"> </span> 
+        <span class="kd">final</span> <span class="nc">ThreadFactory</span> <span class="n">backingThreadFactory</span> <span class="o">=</span><span class="err">     </span> 
+             <span class="o">(</span><span class="n">builder</span><span class="o">.</span><span class="na">backingThreadFactory</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span><span class="err">         </span> 
+                <span class="o">?</span> <span class="n">builder</span><span class="o">.</span><span class="na">backingThreadFactory</span><span class="err">         </span>
+                <span class="o">:</span> <span class="nc">Executors</span><span class="o">.</span><span class="na">defaultThreadFactory</span><span class="o">();</span><span class="err"> </span> 
+        <span class="kd">final</span> <span class="nc">AtomicLong</span> <span class="n">count</span> <span class="o">=</span> <span class="o">(</span><span class="n">nameFormat</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">?</span> <span class="k">new</span> <span class="nc">AtomicLong</span><span class="o">(</span><span class="mi">0</span><span class="o">)</span> <span class="o">:</span> <span class="kc">null</span><span class="o">;</span><span class="err"> </span> 
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">ThreadFactory</span><span class="o">()</span> <span class="o">{</span><span class="err">   </span> 
+            <span class="nd">@Override</span><span class="err">   </span> 
+            <span class="kd">public</span> <span class="nc">Thread</span> <span class="nf">newThread</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">runnable</span><span class="o">)</span> <span class="o">{</span><span class="err">     </span> 
+                <span class="nc">Thread</span> <span class="n">thread</span> <span class="o">=</span> <span class="n">backingThreadFactory</span><span class="o">.</span><span class="na">newThread</span><span class="o">(</span><span class="n">runnable</span><span class="o">);</span><span class="err">     </span> 
+                <span class="k">if</span> <span class="o">(</span><span class="n">nameFormat</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span><span class="err">       </span> 
+                    <span class="n">thread</span><span class="o">.</span><span class="na">setName</span><span class="o">(</span><span class="n">format</span><span class="o">(</span><span class="n">nameFormat</span><span class="o">,</span> <span class="n">count</span><span class="o">.</span><span class="na">getAndIncrement</span><span class="o">()));</span><span class="err">     </span> 
+                <span class="o">}</span><span class="err">     </span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">daemon</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span><span class="c1">// 守护线程        </span>
+                    <span class="n">thread</span><span class="o">.</span><span class="na">setDaemon</span><span class="o">(</span><span class="n">daemon</span><span class="o">);</span><span class="err">     </span>
+                <span class="o">}</span><span class="err">     </span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">priority</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span><span class="c1">// 优先级        </span>
+                    <span class="n">thread</span><span class="o">.</span><span class="na">setPriority</span><span class="o">(</span><span class="n">priority</span><span class="o">);</span><span class="err">     </span> 
+                <span class="o">}</span><span class="err">     </span> 
+                <span class="k">if</span> <span class="o">(</span><span class="n">uncaughtExceptionHandler</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span><span class="err">     </span>
+                    <span class="n">thread</span><span class="o">.</span><span class="na">setUncaughtExceptionHandler</span><span class="o">(</span><span class="n">uncaughtExceptionHandler</span><span class="o">);</span><span class="err">     </span>
+                <span class="o">}</span><span class="err">     </span> 
+                <span class="k">return</span> <span class="n">thread</span><span class="o">;</span><span class="err">   </span>
+            <span class="o">}</span><span class="err"> </span>
+        <span class="o">};</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+</code></pre></div></div>
+
+<h2 id="创建线程池的正确姿势">创建线程池的正确姿势</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cm">/** 
+ * @Auther: Noseparte * @Date: 2019/11/27 10:35 
+ * @Description: 
+ * 
+ *          &lt;p&gt;定制协议网关线程池&lt;/p&gt; 
+ */</span>
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">ThreadPool</span> <span class="o">{</span><span class="err">   </span> 
+
+    <span class="kd">protected</span> <span class="kd">final</span> <span class="kd">static</span> <span class="nc">Logger</span> <span class="n">_LOG</span> <span class="o">=</span> <span class="nc">LogManager</span><span class="o">.</span><span class="na">getLogger</span><span class="o">(</span><span class="nc">ThreadPool</span><span class="o">.</span><span class="na">class</span><span class="o">);</span><span class="err">   </span> 
+    <span class="kd">private</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">ExecutorService</span><span class="o">&gt;</span> <span class="n">workers</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span><span class="err">   </span> 
+    <span class="kd">private</span> <span class="kt">int</span> <span class="n">threadCount</span><span class="o">;</span><span class="err">   </span> 
+    <span class="kd">private</span> <span class="nc">ThreadFactory</span> <span class="n">threadFactory</span><span class="o">;</span>
+    
+    <span class="kd">public</span> <span class="nf">ThreadPool</span><span class="o">(</span><span class="kt">int</span> <span class="n">threadCount</span><span class="o">)</span> <span class="o">{</span><span class="err">       </span> 
+        <span class="k">this</span><span class="o">(</span><span class="n">threadCount</span><span class="o">,</span> <span class="k">new</span> <span class="nc">UserThreadFactory</span><span class="o">(</span><span class="s">"网关游戏逻辑协议线程池"</span><span class="o">));</span><span class="err">   </span> 
+    <span class="o">}</span><span class="err">   </span> 
+    
+    <span class="kd">public</span> <span class="nf">ThreadPool</span><span class="o">(</span><span class="kt">int</span> <span class="n">threadCount</span><span class="o">,</span> <span class="nc">ThreadFactory</span> <span class="n">threadFactory</span><span class="o">)</span> <span class="o">{</span><span class="err">       </span> 
+        <span class="k">this</span><span class="o">.</span><span class="na">threadCount</span> <span class="o">=</span> <span class="n">threadCount</span><span class="o">;</span><span class="err">       </span> 
+        <span class="k">this</span><span class="o">.</span><span class="na">threadFactory</span> <span class="o">=</span> <span class="n">threadFactory</span><span class="o">;</span><span class="err">       </span> 
+        <span class="k">if</span> <span class="o">(</span><span class="n">threadCount</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="o">||</span> <span class="kc">null</span> <span class="o">==</span> <span class="n">threadFactory</span><span class="o">)</span><span class="err">           </span> 
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">();</span><span class="err">       </span> 
+            <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">threadCount</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span><span class="err">           </span> 
+                <span class="n">workers</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="k">new</span> <span class="nc">ThreadPoolExecutor</span><span class="o">(</span><span class="n">threadCount</span><span class="o">,</span> <span class="mi">200</span><span class="o">,</span><span class="err">                   </span> 
+                    <span class="mi">0L</span><span class="o">,</span> <span class="nc">TimeUnit</span><span class="o">.</span><span class="na">MILLISECONDS</span><span class="o">,</span><span class="err">                   </span> 
+                    <span class="k">new</span> <span class="nc">LinkedBlockingQueue</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;(</span><span class="mi">1024</span><span class="o">),</span>
+                    <span class="n">threadFactory</span><span class="o">,</span> 
+                    <span class="k">new</span> <span class="nc">ThreadPoolExecutor</span><span class="o">.</span><span class="na">AbortPolicy</span><span class="o">()));</span><span class="err">       </span> 
+            <span class="o">}</span><span class="err">   </span> 
+    <span class="o">}</span><span class="err">   </span> 
+    
+    <span class="kd">public</span> <span class="nc">Future</span> <span class="nf">execute</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">task</span><span class="o">,</span> <span class="kt">int</span> <span class="n">mold</span><span class="o">)</span> <span class="o">{</span><span class="err">       </span> 
+        <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="nc">Math</span><span class="o">.</span><span class="na">abs</span><span class="o">(</span><span class="n">mold</span><span class="o">)</span> <span class="o">%</span> <span class="n">threadCount</span><span class="o">;</span><span class="err">       </span> 
+        <span class="nc">ExecutorService</span> <span class="n">executor</span> <span class="o">=</span> <span class="n">workers</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">index</span><span class="o">);</span><span class="err">       </span> 
+        <span class="k">if</span> <span class="o">(</span><span class="kc">null</span> <span class="o">==</span> <span class="n">executor</span><span class="o">)</span> <span class="o">{</span><span class="err">           </span>
+            <span class="n">_LOG</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"sid="</span> <span class="o">+</span> <span class="n">mold</span> <span class="o">+</span> <span class="s">", tid="</span> <span class="o">+</span> <span class="n">index</span><span class="o">);</span><span class="err">           </span> 
+            <span class="k">return</span> <span class="kc">null</span><span class="o">;</span><span class="err">       </span>
+        <span class="o">}</span><span class="err">       </span> 
+        <span class="k">return</span> <span class="n">executor</span><span class="o">.</span><span class="na">submit</span><span class="o">(</span><span class="n">task</span><span class="o">);</span><span class="err">   </span> 
+    <span class="o">}</span><span class="err">   </span> 
+    
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">shutdown</span><span class="o">()</span> <span class="o">{</span><span class="err">       </span>
+        <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span><span class="err">       </span> 
+        <span class="k">for</span> <span class="o">(</span><span class="nc">ExecutorService</span> <span class="n">worker</span> <span class="o">:</span> <span class="n">workers</span><span class="o">)</span> <span class="o">{</span><span class="err">           </span> 
+            <span class="n">_LOG</span><span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="s">"close thread{}."</span><span class="o">,</span> <span class="o">++</span><span class="n">count</span><span class="o">);</span><span class="err">           </span> 
+            <span class="n">worker</span><span class="o">.</span><span class="na">shutdown</span><span class="o">();</span><span class="err">       </span> 
+        <span class="o">}</span><span class="err">   </span>
+    <span class="o">}</span><span class="err">   </span> 
+    
+    <span class="kd">static</span> <span class="kd">class</span> <span class="nc">UserThreadFactory</span> <span class="kd">implements</span> <span class="nc">ThreadFactory</span> <span class="o">{</span><span class="err">       </span> 
+        <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">AtomicInteger</span> <span class="n">poolNumber</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">(</span><span class="mi">1</span><span class="o">);</span><span class="err">       </span> 
+        <span class="kd">private</span> <span class="kd">final</span> <span class="nc">ThreadGroup</span> <span class="n">group</span><span class="o">;</span><span class="err">       </span> 
+        <span class="kd">private</span> <span class="kd">final</span> <span class="nc">AtomicInteger</span> <span class="n">threadNumber</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">(</span><span class="mi">1</span><span class="o">);</span><span class="err">       </span> 
+        <span class="kd">private</span> <span class="kd">final</span> <span class="nc">String</span> <span class="n">namePrefix</span><span class="o">;</span><span class="err">       </span> 
+        
+        <span class="nc">UserThreadFactory</span><span class="o">(</span><span class="nc">String</span> <span class="n">poolName</span><span class="o">)</span> <span class="o">{</span><span class="err">           </span> 
+            <span class="nc">SecurityManager</span> <span class="n">s</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">getSecurityManager</span><span class="o">();</span><span class="err">           </span> 
+            <span class="n">group</span> <span class="o">=</span> <span class="o">(</span><span class="n">s</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">?</span> <span class="n">s</span><span class="o">.</span><span class="na">getThreadGroup</span><span class="o">()</span> <span class="o">:</span><span class="err">  </span>
+                    <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">().</span><span class="na">getThreadGroup</span><span class="o">();</span><span class="err">           </span> 
+            <span class="n">namePrefix</span> <span class="o">=</span> <span class="n">poolName</span> <span class="o">+</span> <span class="s">"-"</span> <span class="o">+</span><span class="err">                   </span> 
+                    <span class="n">poolNumber</span><span class="o">.</span><span class="na">getAndIncrement</span><span class="o">()</span> <span class="o">+</span><span class="err">                   </span> 
+                    <span class="s">"-thread-"</span><span class="o">;</span><span class="err">       </span> 
+        <span class="o">}</span><span class="err">     </span>
+        
+        <span class="kd">public</span> <span class="nc">Thread</span> <span class="nf">newThread</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span><span class="err">           </span> 
+            <span class="nc">Thread</span> <span class="n">t</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Thread</span><span class="o">(</span><span class="n">group</span><span class="o">,</span> <span class="n">r</span><span class="o">,</span><span class="err">                   </span> 
+                <span class="n">namePrefix</span> <span class="o">+</span> <span class="n">threadNumber</span><span class="o">.</span><span class="na">getAndIncrement</span><span class="o">(),</span><span class="err">                   </span> 
+                <span class="mi">0</span><span class="o">);</span><span class="err">           </span> 
+            <span class="k">if</span> <span class="o">(</span><span class="n">t</span><span class="o">.</span><span class="na">isDaemon</span><span class="o">())</span><span class="err">               </span> 
+                <span class="n">t</span><span class="o">.</span><span class="na">setDaemon</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span><span class="err">           </span> 
+            <span class="k">if</span> <span class="o">(</span><span class="n">t</span><span class="o">.</span><span class="na">getPriority</span><span class="o">()</span> <span class="o">!=</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">NORM_PRIORITY</span><span class="o">)</span><span class="err">   </span>
+                <span class="n">t</span><span class="o">.</span><span class="na">setPriority</span><span class="o">(</span><span class="nc">Thread</span><span class="o">.</span><span class="na">NORM_PRIORITY</span><span class="o">);</span><span class="err">           </span> 
+            <span class="k">return</span> <span class="n">t</span><span class="o">;</span><span class="err">       </span> 
+        <span class="o">}</span><span class="err">   </span>
+        
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+
+<blockquote>
+  <p><strong>创建线程池的注意事项：</strong></p>
+  <ol>
+    <li>根据业务场景定制ThreadFactory、饱和策略、任务队列、ThreadPoolExecutor</li>
+    <li>注意BlockingQueue中任务阻塞数量越来越多会导致内存耗尽(OOM), 要设置队列的上限值</li>
+  </ol>
+</blockquote>
+
+<blockquote>
+  <p><strong>源码地址：</strong>
+<a href="https://github.com/AwakenCN/Almost-Famous/blob/2b8e16c9476364d7a95aef228655382ac6a199e0/famous-common/src/main/java/com/noseparte/common/thread/ThreadPool.java#L70">Almost-Famous: 游戏中的网关线程池是如何创建的</a></p>
+</blockquote>
+
+<blockquote>
+  <p><strong>相关博文：友情链接</strong>
+<a href="https://zhuanlan.zhihu.com/p/32867181">一次Java线程池误用引发的血案和总结</a>
+<a href="https://blog.csdn.net/hollis_chuang/article/details/83743723">Java中线程池，你真的会用吗？</a></p>
+</blockquote>
+:ET
