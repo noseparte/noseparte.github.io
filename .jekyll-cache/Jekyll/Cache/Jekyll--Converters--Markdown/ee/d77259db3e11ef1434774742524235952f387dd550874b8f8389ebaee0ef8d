@@ -1,0 +1,74 @@
+I"�<p>…</p>
+
+<h1 id="程序员进阶之路">程序员进阶之路</h1>
+
+<p>写这篇文章缘由还要从相识<a href="https://github.com/UncleCatMySelf">猫叔</a>说起，我们在慕课网的认证作者群里相识，因为同样对netty感兴趣，同样有纹身，所以很快熟识起来。<a href="https://github.com/AwakenCN/InChat">Inchat</a>是猫叔发起的开源项目，我认识他的时候在github上已有200 star，前后发行了4个版本，目前500+ star，200+ fork。公众号有一大批粉丝，QQ群每天都有感兴趣的人家加群。</p>
+
+<p>受他的影响下我也开始写开源项目，运营公众号。我的开源项目<a href="https://github.com/AwakenCN/Almost-Famous">Almost-Famous</a> 是一款关于卡牌游戏的项目。我致力于将所有我掌握技术栈都运用到这个项目中，这样我会在其中受益良多。</p>
+
+<p>在这个微服务、大数据、5G、AI、区块链横行的时代，人人都说程序员是吃青春饭的，35岁后就要面临失业的风险，我想说的是一技傍身才是生存之本，才会立于不败之地。</p>
+
+<h2 id="何为普通程序员">何为普通程序员？</h2>
+
+<p>简而言之，工作多年还是那些从事CRUD的程序员。What？How？Why？</p>
+
+<h2 id="何时意识到自己是普通程序员">何时意识到自己是普通程序员？</h2>
+
+<p>最直接的方式就是面试：</p>
+
+<ul>
+  <li>
+    <p><strong>场景一</strong></p>
+
+    <ol>
+      <li>说一下HashMap的数据结构？它是怎么实现的？什么时候扩容？</li>
+      <li>ConcurrentHashMap与LinkedHashMap的区别？在什么场景下使用过？</li>
+    </ol>
+  </li>
+  <li>
+    <p><strong>场景二</strong></p>
+
+    <ol>
+      <li>redis支持的5种数据结构？zset是怎么实现的？用做实现排行榜时，有时间维度该怎么办？</li>
+      <li>mysql中索引的类型？B+数索引的优点? sql、索引优化？什么是最左匹配原则？</li>
+      <li>mongodb中的LBS实现有过接触吗？</li>
+    </ol>
+  </li>
+  <li>
+    <p><strong>场景三</strong></p>
+
+    <ol>
+      <li>简述一下JVM的运行时数据区？JVM内存模型？什么是元数据区?</li>
+      <li>用过什么垃圾收集器？掌握哪些垃圾回收算法？G1的特性和它的优势在哪？</li>
+    </ol>
+  </li>
+</ul>
+
+<p>其次，对于计算机的基础知识并没有掌握，例如计算机网络部分，OSI模型，TCP/IP协议，TCP与UDP协议的区别。数据结构与算法的基本功，比如让你写个，二分查找法，快速排序，冒泡排序，数组和链表的区别，还有一些经典的算法题，例如：红包算法等等，有兴趣的去LeetCode、剑指offer去刷题，我就不在这打脸了。</p>
+
+<h2 id="这一年我的收获">这一年我的收获</h2>
+
+<ol>
+  <li>
+    <p><strong>springcloud微服务的实操经验</strong></p>
+
+    <ul>
+      <li>从一个基础的springboot项目一步步将它改造成springcloud微服务</li>
+      <li>Netflix常用组件，Eureka、Config、Hystrix、Ribbon</li>
+      <li>Config</li>
+    </ul>
+  </li>
+  <li>
+    <p><strong>docker容器、kubernetes容器编排运用于生产环境</strong></p>
+
+    <p><strong>有道是，一时docker一时爽，一直docker一直爽。</strong></p>
+  </li>
+  <li>
+    <p>一个游戏开发必须掌握的长链接与服务器同步</p>
+
+    <p><strong>netty/mina框架必须掌握一个。</strong></p>
+  </li>
+</ol>
+
+<p>…</p>
+:ET

@@ -1,13 +1,14 @@
-I"Ü<div class="row">
+I"ß<div class="row">
 
     <div class="col-md-12">
 
-        <!-- Blog list -->
         <ul id="posts-list">
             
                 
             
-        </ul>
+                
+            
+        </ul> 
 
         <!-- Pagination -->
         
@@ -23,7 +24,6 @@
 
 
        </div>
-
     </div>
 
 </div>
